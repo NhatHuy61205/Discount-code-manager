@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, Float, ForeignKey, Text, UniqueConstraint
 from datetime import datetime
 from sqlalchemy.orm import relationship
-from app import app, db
+from app import app, db, login
 from enum import Enum as RoleEnum
 from flask_login import UserMixin
 
@@ -152,6 +152,8 @@ class OrderItem(db.Model):
     product_id = Column(Integer, ForeignKey(Product.id), nullable=False)
     quantity = Column(Integer)
     price = Column(Float)
+
+
 
 if __name__=="__main__":
     with app.app_context():

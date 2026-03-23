@@ -1,0 +1,118 @@
+    <style>
+    body {
+        background-color: #f7f8fa;
+        color: #212529;
+    }
+
+    .main-content {
+        min-height: calc(100vh - 140px);
+    }
+
+    .hero-box {
+        border-radius: 28px;
+        background: linear-gradient(135deg, #fff8f8 0%, #fffdfd 45%, #fff3f6 100%);
+        border: 1px solid #f0e3e6;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.04);
+    }
+
+    .hero-title {
+    font-size: clamp(2.2rem, 3.5vw, 3.2rem);
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+    .hero-desc {
+        font-size: 1.08rem;
+        color: #5f6b7a;
+        max-width: 560px;
+    }
+
+    .hero-stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1;
+        color: #111827;
+    }
+
+    .hero-stat-label {
+        color: #6b7280;
+        font-size: 0.98rem;
+    }
+
+    .hero-banner-img {
+        width: 100%;
+        height: 380px;
+        object-fit: cover;
+        border-radius: 18px;
+    }
+
+    .carousel-control-prev,
+    .carousel-control-next {
+        width: 12%;
+    }
+
+    .carousel-control-prev-icon,
+    .carousel-control-next-icon {
+        background-color: rgba(0, 0, 0, 0.35);
+        border-radius: 50%;
+        padding: 18px;
+        background-size: 55% 55%;
+    }
+
+    .carousel-indicators [data-bs-target] {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin: 0 5px;
+    }
+
+    .section-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+
+    .section-subtitle {
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+
+    .product-card {
+        border: none;
+        border-radius: 18px;
+        overflow: hidden;
+        transition: 0.25s ease;
+        box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.06);
+        background: #fff;
+        height: 100%;
+    }
+
+    .product-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 0.8rem 1.6rem rgba(0, 0, 0, 0.10);
+    }
+
+    .product-image {
+        height: 220px;
+        object-fit: cover;
+        background: #eef1f4;
+    }
+
+    .price-new {
+        color: #dc3545;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .price-old {
+        color: #6c757d;
+        text-decoration: line-through;
+        font-size: 0.95rem;
+    }
+   .navbar a.text-dark:hover {
+    color: #dc3545 !important;
+}
+
+}
+</style>

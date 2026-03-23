@@ -1,0 +1,129 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Trang chủ{% endblock %}
+
+{% block content %}
+<section class="hero-box p-4 p-md-5 mb-5 overflow-hidden">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-6">
+            <span class="badge bg-danger text-white px-3 py-2 mb-3 rounded-pill">
+                Ưu đãi hôm nay
+            </span>
+
+            <h1 class="hero-title mb-3">
+                Săn deal mỗi ngày <br>
+                <span class="text-danger">Mua sắm tiết kiệm</span>
+            </h1>
+
+            <p class="hero-desc mb-4">
+                Khám phá hàng loạt sản phẩm nổi bật cùng nhiều mã giảm giá hấp dẫn.
+                Mua nhanh, áp mã dễ, tối ưu chi phí cho từng đơn hàng.
+            </p>
+
+            <div class="d-flex flex-wrap gap-3 mb-4">
+                <a href="#products" class="btn btn-danger rounded-pill px-4 py-2 fw-semibold">
+                    Mua ngay
+                </a>
+                <a href="#" class="btn btn-outline-dark rounded-pill px-4 py-2 fw-semibold">
+                    Xem khuyến mãi
+                </a>
+            </div>
+
+            <div class="row g-3">
+
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="position-relative">
+                <div class="bg-white rounded-4 shadow-sm border p-3"  >
+                    <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="3000">
+                        <div class="carousel-indicators">
+                            {% for banner in hero_banners %}
+                            <button
+                                type="button"
+                                data-bs-target="#heroCarousel"
+                                data-bs-slide-to="{{ loop.index0 }}"
+                                class="{% if loop.first %}active{% endif %}"
+                                {% if loop.first %}aria-current="true"{% endif %}
+                                aria-label="Slide {{ loop.index }}">
+                            </button>
+                            {% endfor %}
+                        </div>
+
+                        <div class="carousel-inner rounded-4 overflow-hidden">
+                            {% for banner in hero_banners %}
+                            <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                <img
+                                    src="{{ url_for('static', filename=banner) }}"
+                                    class="d-block w-100 hero-banner-img"
+                                    alt="Banner khuyến mãi {{ loop.index }}"
+                                >
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        </button>
+
+                        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </div>
+
+
+
+
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="products">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="section-title">Danh sách sản phẩm</h2>
+            <p class="section-subtitle">Khám phá các sản phẩm nổi bật đang có ưu đãi</p>
+        </div>
+        <a href="#" class="text-danger text-decoration-none fw-semibold">Xem tất cả</a>
+    </div>
+
+    <div class="row g-4">
+        {% for product in products %}
+        <div class="col-sm-6 col-lg-4">
+            <div class="card product-card h-100">
+                <img
+                    src="{{ product.image if product.image else 'https://via.placeholder.com/600x400?text=No+Image' }}"
+                    class="product-image card-img-top"
+                    alt="{{ product.name }}"
+                >
+
+                <div class="card-body d-flex flex-column">
+                    <span class="badge bg-light text-danger border mb-2">
+                        {{ product.category.name if product.category else 'Sản phẩm' }}
+                    </span>
+
+                    <h5 class="card-title fw-bold">{{ product.name }}</h5>
+
+                    <p class="card-text text-muted small">
+                        {{ product.product_detail.description if product.product_detail and product.product_detail.description else 'Chưa có mô tả cho sản phẩm này.' }}
+                    </p>
+
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="price-new">
+                            {{ "{:,.0f}".format(product.price).replace(",", ".") }}đ
+                        </span>
+                    </div>
+
+                    <div class="d-grid mt-auto">
+                        <a href="#" class="btn btn-outline-danger rounded-pill">Xem chi tiết</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

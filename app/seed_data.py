@@ -48,7 +48,8 @@ def seed_data():
             name=f"Sản phẩm {i}",
             price=random.randint(100, 500) * 1000,
             cate_id=random.choice(categories).id,
-            image="https://via.placeholder.com/300"
+            image="https://via.placeholder.com/300",
+            stock_quantity=random.randint(0, 200)
         )
         products.append(p)
 
@@ -69,29 +70,137 @@ def seed_data():
 
     # ===== 5. COUPON TYPE =====
     coupon_types = [
-        CouponType(name="Giảm toàn shop", description="Áp dụng toàn bộ"),
-        CouponType(name="Giảm theo danh mục", description="Áp dụng theo category"),
+        CouponType(name="Giảm toàn bộ sản phẩm", description="Áp dụng toàn shop"),
+        CouponType(name="Giảm theo ngành hàng", description="Áp dụng theo loại sản phẩm"),
+        CouponType(name="Giảm theo sản phẩm", description="Áp dụng theo sản phẩm được chọn"),
     ]
     db.session.add_all(coupon_types)
     db.session.commit()
 
     # ===== 6. COUPONS =====
     coupons = []
+
     for i in range(5):
         c = Coupon(
-            name=f"Coupon {i}",
+            name=f"Giảm giá {i}",
             code=f"SALE{i}",
-            discount_kind=DiscountKind.PERCENTAGE,
-            discount_value=random.choice([10, 20, 30]),
+            description="Đơn từ 50.000đ - Áp dụng toàn shop",
+
+            discount_kind=random.choice([
+                DiscountKind.PERCENTAGE,
+                DiscountKind.FIXED
+            ]),
+
+            discount_value=random.choice([10, 20, 30, 50000, 100000]),
+
+            apply_type=random.choice([
+                CouponApplyType.ALL_PRODUCT,
+                CouponApplyType.CATEGORY,
+                CouponApplyType.PRODUCT
+            ]),
+
+            target_type=random.choice([
+                CouponTargetType.ALL,
+                CouponTargetType.LOYAL_1Y
+            ]),
+
+            status=CouponStatus.ACTIVE,
+
+            min_order_value=50000,
+            max_discount_value=100000,
+
             quantity=100,
+            used_count=random.randint(0, 50),
+
+            start_date=datetime.now() - timedelta(days=1),
             end_date=datetime.now() + timedelta(days=30),
+
+            show_public=random.choice([True, False]),
+            usage_limit_per_user=random.choice([1, 999999]),
+
             coupon_type_id=random.choice(coupon_types).id
         )
         coupons.append(c)
 
+    # Coupon hết hạn
+    coupons.append(Coupon(
+        name="Hết hạn",
+        code="EXPIRED1",
+        description="Coupon đã hết hạn",
+        discount_kind=DiscountKind.PERCENTAGE,
+        discount_value=20,
+        apply_type=CouponApplyType.ALL_PRODUCT,
+        show_public=True,
+        usage_limit_per_user=1,
+        target_type=CouponTargetType.ALL,
+        status=CouponStatus.ACTIVE,
+        quantity=100,
+        used_count=10,
+        start_date=datetime.now() - timedelta(days=10),
+        end_date=datetime.now() - timedelta(days=1),
+    ))
+
+    # Coupon hết lượt
+    coupons.append(Coupon(
+        name="Hết lượt",
+        code="OUT1",
+        description="Đã hết lượt sử dụng",
+        discount_kind=DiscountKind.FIXED,
+        discount_value=50000,
+        apply_type=CouponApplyType.ALL_PRODUCT,
+        show_public=False,
+        usage_limit_per_user=999999,
+        target_type=CouponTargetType.ALL,
+        status=CouponStatus.ACTIVE,
+        quantity=50,
+        used_count=50,
+        start_date=datetime.now() - timedelta(days=5),
+        end_date=datetime.now() + timedelta(days=10),
+    ))
+
+    # Coupon sắp diễn ra
+    coupons.append(Coupon(
+        name="Sắp diễn ra",
+        code="COMING1",
+        description="Chưa tới ngày bắt đầu",
+        discount_kind=DiscountKind.PERCENTAGE,
+        discount_value=15,
+        apply_type=CouponApplyType.ALL_PRODUCT,
+        show_public=True,
+        usage_limit_per_user=1,
+        target_type=CouponTargetType.ALL,
+        status=CouponStatus.ACTIVE,
+        quantity=100,
+        used_count=0,
+        start_date=datetime.now() + timedelta(days=2),
+        end_date=datetime.now() + timedelta(days=10),
+    ))
+
     db.session.add_all(coupons)
     db.session.commit()
+    # ===== 6.1 COUPON CATEGORY =====
+    for c in coupons:
+        if c.apply_type == CouponApplyType.CATEGORY:
+            selected_categories = random.sample(categories, k=random.randint(1, min(2, len(categories))))
+            for cate in selected_categories:
+                db.session.add(CouponCategory(
+                    coupon_id=c.id,
+                    category_id=cate.id
+                ))
 
+    db.session.commit()
+
+    # ===== 6.2 COUPON PRODUCT =====
+    for c in coupons:
+        if c.apply_type == CouponApplyType.PRODUCT:
+            selected_products = random.sample(products, k=random.randint(1, min(4, len(products))))
+            for p in selected_products:
+                db.session.add(CouponProduct(
+                    coupon_id=c.id,
+                    product_id=p.id
+                ))
+
+    db.session.commit()
     # ===== 7. USER COUPON =====
     for u in users:
         uc = UserCoupon(
@@ -162,5 +271,6 @@ def seed_data():
 
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()   # tạo bảng nếu chưa có
+        db.drop_all()
+        db.create_all()
         seed_data()

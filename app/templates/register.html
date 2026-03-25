@@ -1,0 +1,73 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Đăng ký{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+
+                <h3 class="text-center mb-4 fw-bold">Đăng ký tài khoản</h3>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Tên</label>
+                        <input type="text" name="name" class="form-control rounded-pill" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tên đăng nhập</label>
+                        <input type="text" name="username" class="form-control rounded-pill" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control rounded-pill" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Số điện thoại</label>
+                        <input type="text" name="phone" class="form-control rounded-pill">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Địa chỉ</label>
+                        <input type="text" name="address" class="form-control rounded-pill" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Mật khẩu</label>
+                        <input type="password" name="password" class="form-control rounded-pill" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Nhập lại mật khẩu</label>
+                        <input type="password" name="confirm" class="form-control rounded-pill" required>
+                    </div>
+
+                    {% if error %}
+                        <div class="alert alert-danger">
+                            {{ error }}
+                        </div>
+                    {% endif %}
+
+                    <div class="d-grid">
+                        <button class="btn btn-danger rounded-pill">
+                            Đăng ký
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center mt-3">
+                    <small>
+                        Đã có tài khoản?
+                        <a href="{{ url_for('login') }}" class="text-danger">Đăng nhập</a>
+                    </small>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

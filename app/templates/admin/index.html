@@ -1,0 +1,112 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+
+    <div class="admin-page">
+        <div class="admin-content">
+            <div class="admin-dashboard">
+                <div class="admin-hero shadow-sm">
+                    <div class="row align-items-center g-4">
+                        <div class="col-lg-8">
+                            <span class="admin-badge">TRANG QUẢN TRỊ</span>
+                            <h1 class="admin-title mt-3">Bảng điều khiển quản trị</h1>
+                            <p class="admin-desc">
+                                Quản lý toàn bộ hệ thống Discount Shop: người dùng, sản phẩm,
+                                giỏ hàng, đơn hàng và mã giảm giá trong một nơi.
+                            </p>
+
+                            <div class="d-flex flex-wrap gap-3 mt-4">
+                                <a href="/admin/product/" class="btn btn-danger admin-btn">
+                                    Quản lý sản phẩm
+                                </a>
+                                <a href="/admin/coupon/" class="btn btn-outline-dark admin-btn">
+                                    Quản lý mã giảm giá
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-4">
+                            <div class="admin-hero-box">
+                                <div class="small text-muted mb-2">Tổng quan hệ thống</div>
+                                <div class="hero-mini-item">
+                                    <span>Người dùng</span>
+                                    <strong>Quản lý tài khoản</strong>
+                                </div>
+                                <div class="hero-mini-item">
+                                    <span>Sản phẩm</span>
+                                    <strong>Kiểm soát danh mục</strong>
+                                </div>
+                                <div class="hero-mini-item">
+                                    <span>Đơn hàng</span>
+                                    <strong>Theo dõi giao dịch</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mt-1">
+                    <div class="col-md-6 col-xl-3">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-danger-subtle text-danger">👤</div>
+                            <div class="stat-label">Người dùng</div>
+                            <div class="stat-value">Quản lý</div>
+                            <div class="stat-text">Theo dõi tài khoản và phân quyền</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-xl-3">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-primary-subtle text-primary">🛍️</div>
+                            <div class="stat-label">Sản phẩm</div>
+                            <div class="stat-value">Danh mục</div>
+                            <div class="stat-text">Quản lý thông tin và chi tiết sản phẩm</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-xl-3">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-success-subtle text-success">🎟️</div>
+                            <div class="stat-label">Mã giảm giá</div>
+                            <div class="stat-value">Ưu đãi</div>
+                            <div class="stat-text">Kiểm soát coupon và loại giảm giá</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-xl-3">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-warning-subtle text-warning">📦</div>
+                            <div class="stat-label">Đơn hàng</div>
+                            <div class="stat-value">Theo dõi</div>
+                            <div class="stat-text">Kiểm tra trạng thái và chi tiết đơn</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-panel shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <div>
+                            <h4 class="mb-1">Truy cập nhanh</h4>
+                            <p class="text-muted mb-0">Đi tới các module quản trị chỉ với một lần bấm</p>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/user/">Người dùng</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/category/">Danh mục</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/product/">Sản phẩm</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/productdetail/">Chi tiết sản phẩm</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/cart/">Giỏ hàng</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/cartitem/">Chi tiết giỏ hàng</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/coupontype/">Loại mã giảm giá</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/coupon/">Mã giảm giá</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/couponcategory/">Mã - danh mục</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/usercoupon/">Mã của user</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/order/">Đơn hàng</a></div>
+                        <div class="col-sm-6 col-lg-4 col-xl-3"><a class="quick-link" href="/admin/orderitem/">Chi tiết đơn hàng</a></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

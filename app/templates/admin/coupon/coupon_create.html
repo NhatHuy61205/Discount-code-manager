@@ -1,0 +1,191 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="coupon-create-page">
+    <form method="post" class="coupon-create-form">
+        <div class="coupon-create-card">
+            <h3 class="coupon-create-title">Thông tin khởi tạo</h3>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Người sử dụng:</label>
+                <div class="coupon-user-type-row">
+                    <label class="coupon-select-card active">
+                        <input type="radio" name="target_type" value="all" checked>
+                        <span>Tất cả mọi người</span>
+                    </label>
+
+                    <label class="coupon-select-card">
+                        <input type="radio" name="target_type" value="old_customer">
+                        <span>Khách hàng trên 1 năm</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Tên mã giảm giá:</label>
+                <input type="text" name="name" class="form-control coupon-create-input required-field" placeholder="Nhập tên mã giảm giá">
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Code mã giảm giá:</label>
+                <input type="text" name="code" class="form-control coupon-create-input required-field" placeholder="Ví dụ: SXUKA">
+            </div>
+        </div>
+
+        <div class="coupon-create-card">
+            <h3 class="coupon-create-title">Cài đặt mã giảm giá</h3>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Phương thức giảm giá</label>
+                <div class="coupon-radio-row">
+                    <label class="coupon-radio-item">
+                        <input type="radio" name="discount_kind" value="fixed" checked>
+                        <span>Giảm theo số tiền</span>
+                    </label>
+
+                    <label class="coupon-radio-item">
+                        <input type="radio" name="discount_kind" value="percentage">
+                        <span>Giảm theo %</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Mức giảm:</label>
+                <input type="number" name="discount_value" class="form-control coupon-create-input required-field" placeholder="Nhập mức giảm">
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Đơn hàng tối thiểu:</label>
+                <input type="number" name="min_order_value" class="form-control coupon-create-input required-field" placeholder="Nhập giá trị đơn hàng tối thiểu">
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Thời gian sử dụng:</label>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <input type="text" id="start_date" name="start_date" class="form-control coupon-create-input required-field" placeholder="Chọn thời gian">
+
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" id="end_date" name="end_date" class="form-control coupon-create-input required-field" placeholder="Chọn thời gian">
+                    </div>
+                </div>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Số lượt sử dụng:</label>
+                <input type="number" name="quantity" class="form-control coupon-create-input required-field" placeholder="Nhập số lượt sử dụng">
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Người mua được dùng:</label>
+                <div class="coupon-radio-row">
+                    <label class="coupon-radio-item">
+                        <input type="radio" name="usage_limit_type" value="many" checked>
+                        <span>Nhiều lần</span>
+                    </label>
+
+                    <label class="coupon-radio-item">
+                        <input type="radio" name="usage_limit_type" value="once">
+                        <span>Một lần</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-checkbox-item">
+                    <input type="checkbox" name="show_public" value="1">
+                    <span>Hiển thị mã giảm giá trên trang mua hàng</span>
+                </label>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Ghi chú:</label>
+                <textarea name="description" rows="4" class="form-control coupon-create-input" placeholder="Thêm ghi chú của bạn"></textarea>
+            </div>
+        </div>
+
+       <div class="coupon-create-card">
+    <h3 class="coupon-create-title">Mã áp dụng cho</h3>
+
+    <div class="coupon-apply-row">
+        <label class="coupon-radio-big">
+            <input type="radio" name="apply_scope" value="all_product" checked>
+            <span>Toàn bộ sản phẩm</span>
+        </label>
+
+        <label class="coupon-radio-big">
+            <input type="radio" name="apply_scope" value="selected_category">
+            <span>Ngành hàng được chọn</span>
+        </label>
+
+        <label class="coupon-radio-big">
+            <input type="radio" name="apply_scope" value="selected_product">
+            <span>Sản phẩm được chọn</span>
+        </label>
+    </div>
+
+    <div id="scope-all" class="scope-panel active">
+        <div class="scope-hint">
+            Mã sẽ được áp dụng cho toàn bộ sản phẩm trong cửa hàng.
+        </div>
+    </div>
+
+    <div id="scope-category" class="scope-panel">
+        <div class="scope-section-title">Chọn loại sản phẩm</div>
+        <div class="scope-grid">
+            {% for c in categories %}
+            <label class="scope-check-card">
+                <input type="checkbox" name="category_ids" value="{{ c.id }}">
+                <span>{{ c.name }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="scope-product" class="scope-panel">
+        <div class="scope-section-head">
+            <div>
+                <div class="scope-section-title">Chọn sản phẩm</div>
+                <div class="scope-note">Sản phẩm được ưu tiên hiển thị theo số lượng tồn kho giảm dần.</div>
+            </div>
+            <div class="scope-search-box">
+                <input type="text" id="product-search" class="form-control coupon-create-input" placeholder="Tìm sản phẩm...">
+            </div>
+        </div>
+
+        <div class="scope-product-list" id="product-list">
+            {% for p in products %}
+            <label class="scope-product-card" data-name="{{ p.name|lower }}">
+                <div class="scope-product-left">
+                    <input type="checkbox" name="product_ids" value="{{ p.id }}">
+                    <div class="scope-product-info">
+                        <div class="scope-product-name">{{ p.name }}</div>
+                        <div class="scope-product-meta">
+                            Loại: {{ p.category.name if p.category else '---' }}
+                        </div>
+                    </div>
+                </div>
+                <div class="scope-product-stock">
+                    Tồn kho: <strong>{{ p.stock_quantity }}</strong>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<div id="form-error" class="alert alert-danger d-none">
+    Vui lòng điền đầy đủ thông tin
+</div>
+        <div class="coupon-create-actions">
+            <button type="submit" class="btn btn-danger coupon-submit-btn">
+                Tạo mã
+            </button>
+        </div>
+
+    </form>
+</div>
+
+
+{% endblock %}

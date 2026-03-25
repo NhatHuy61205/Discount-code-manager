@@ -6,5 +6,7 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "KJASKJHDAKJHDIS"
 app.config["SQLALCHEMY_DATABASE_URI"] = "mysql+pymysql://root:Root%40123A@localhost/discountdb?charset=utf8mb4"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
-login = LoginManager(app)
+login = LoginManager()
+login.login_view = "login"
+login.init_app(app)
 db = SQLAlchemy(app)

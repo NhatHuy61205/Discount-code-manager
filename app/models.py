@@ -45,9 +45,11 @@ class Product(Base):
     image = Column(String(300), nullable=True)
     price = Column(Float, default=0.0)
     cate_id = Column(Integer, ForeignKey(Category.id), nullable=False)
+    stock_quantity = Column(Integer, default=0, nullable=False)
 
     product_detail = relationship('ProductDetail', backref='product', uselist=False)
     order_items = relationship('OrderItem', backref='product', lazy=True)
+    coupon_products = relationship('CouponProduct', backref='product', lazy=True)
 
 
 class Cart(db.Model):
@@ -83,6 +85,29 @@ class DiscountKind(RoleEnum):
     PERCENTAGE = "percentage"
     FIXED = "fixed"
 
+class CouponApplyType(RoleEnum):
+    ALL_PRODUCT = "all_product"   # Áp dụng toàn bộ sản phẩm
+    CATEGORY = "category"         # Áp dụng theo loại sản phẩm
+    PRODUCT = "product"           # Áp dụng theo sản phẩm được chọn
+
+
+class CouponTargetType(RoleEnum):
+    ALL = "all"              # Tất cả mọi người
+    LOYAL_1Y = "loyal_1y"    # User có tài khoản trên 1 năm
+
+
+class CouponStatus(RoleEnum):
+    DRAFT = "draft"          # Bản nháp
+    ACTIVE = "active"        # Đang bật
+    INACTIVE = "inactive"    # Tắt thủ công
+
+
+class CouponCondition(RoleEnum):
+    UPCOMING = "upcoming"        # Chưa tới ngày bắt đầu
+    AVAILABLE = "available"      # Đang dùng được
+    OUT_OF_STOCK = "out_of_stock"  # Hết lượt
+    EXPIRED = "expired"          # Hết hạn
+    DISABLED = "disabled"        # Bị tắt
 
 class CouponType(db.Model):
     id = Column(Integer, primary_key=True)
@@ -94,18 +119,36 @@ class CouponType(db.Model):
 
 class Coupon(Base):
     code = Column(String(50), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+
     discount_kind = Column(Enum(DiscountKind), nullable=False)
     discount_value = Column(Float, nullable=False)
-    quantity = Column(Integer)
+
+    apply_type = Column(Enum(CouponApplyType), default=CouponApplyType.ALL_PRODUCT, nullable=False)
+    target_type = Column(Enum(CouponTargetType), default=CouponTargetType.ALL, nullable=False)
+    status = Column(Enum(CouponStatus), default=CouponStatus.DRAFT, nullable=False)
+
+    min_order_value = Column(Float, default=0)
+    max_discount_value = Column(Float, nullable=True)
+
+    quantity = Column(Integer, default=0)
     used_count = Column(Integer, default=0)
+
     start_date = Column(DateTime, default=datetime.now)
     end_date = Column(DateTime)
-    coupon_type_id = Column(Integer, ForeignKey(CouponType.id))
+
+    show_public = Column(Boolean, default=False)
+    usage_limit_per_user = Column(Integer, default=1)
+
+    coupon_type_id = Column(Integer, ForeignKey(CouponType.id), nullable=True)
 
     user_coupons = relationship('UserCoupon', backref='coupon', lazy=True)
     carts = relationship('Cart', backref='coupon', lazy=True)
     orders = relationship('Order', backref='coupon', lazy=True)
     coupon_categories = relationship('CouponCategory', backref='coupon', lazy=True)
+    coupon_products = relationship('CouponProduct', backref='coupon', lazy=True)
+
+
 
 
 class CouponCategory(db.Model):
@@ -117,6 +160,14 @@ class CouponCategory(db.Model):
         UniqueConstraint('coupon_id', 'category_id', name='uq_coupon_category'),
     )
 
+class CouponProduct(db.Model):
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    coupon_id = Column(Integer, ForeignKey(Coupon.id), nullable=False)
+    product_id = Column(Integer, ForeignKey(Product.id), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('coupon_id', 'product_id', name='uq_coupon_product'),
+    )
 
 class UserCoupon(db.Model):
     id = Column(Integer, primary_key=True)
@@ -157,4 +208,5 @@ class OrderItem(db.Model):
 
 if __name__=="__main__":
     with app.app_context():
+        db.drop_all()
         db.create_all()

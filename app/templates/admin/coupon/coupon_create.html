@@ -2,6 +2,15 @@
 
 {% block body %}
 <div class="coupon-create-page">
+    {% with messages = get_flashed_messages(with_categories=true, category_filter=['danger']) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-danger mb-3">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
     <form method="post" class="coupon-create-form">
         <div class="coupon-create-card">
             <h3 class="coupon-create-title">Thông tin khởi tạo</h3>
@@ -23,12 +32,12 @@
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Tên mã giảm giá:</label>
-                <input type="text" name="name" class="form-control coupon-create-input required-field" placeholder="Nhập tên mã giảm giá">
+               <input type="text" name="name" value="{{ request.form.get('name', '') }}" class="form-control coupon-create-input required-field" placeholder="Nhập tên mã giảm giá">
             </div>
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Code mã giảm giá:</label>
-                <input type="text" name="code" class="form-control coupon-create-input required-field" placeholder="Ví dụ: SXUKA">
+               <input type="text" name="code" value="{{ request.form.get('code', '') }}" class="form-control coupon-create-input required-field" placeholder="Ví dụ: SXUKA">
             </div>
         </div>
 
@@ -39,12 +48,14 @@
                 <label class="coupon-create-label">Phương thức giảm giá</label>
                 <div class="coupon-radio-row">
                     <label class="coupon-radio-item">
-                        <input type="radio" name="discount_kind" value="fixed" checked>
+                        <input type="radio" name="discount_kind" value="fixed"
+       {% if request.form.get('discount_kind', 'fixed') == 'fixed' %}checked{% endif %}>
                         <span>Giảm theo số tiền</span>
                     </label>
 
                     <label class="coupon-radio-item">
-                        <input type="radio" name="discount_kind" value="percentage">
+                       <input type="radio" name="discount_kind" value="percentage"
+       {% if request.form.get('discount_kind') == 'percentage' %}checked{% endif %}>
                         <span>Giảm theo %</span>
                     </label>
                 </div>
@@ -52,30 +63,34 @@
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Mức giảm:</label>
-                <input type="number" name="discount_value" class="form-control coupon-create-input required-field" placeholder="Nhập mức giảm">
+               <input type="number" name="discount_value" value="{{ request.form.get('discount_value', '') }}" class="form-control coupon-create-input required-field" placeholder="Nhập mức giảm">
             </div>
+            <div class="coupon-create-group" id="max-discount-group" style="display: none;">
+    <label class="coupon-create-label">Giảm tối đa:</label>
+   <input type="number" name="max_discount_value" value="{{ request.form.get('max_discount_value', '') }}" class="form-control coupon-create-input" placeholder="Nhập số tiền giảm tối đa">
+</div>
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Đơn hàng tối thiểu:</label>
-                <input type="number" name="min_order_value" class="form-control coupon-create-input required-field" placeholder="Nhập giá trị đơn hàng tối thiểu">
+              <input type="number" name="min_order_value" value="{{ request.form.get('min_order_value', '') }}" class="form-control coupon-create-input required-field" placeholder="Nhập giá trị đơn hàng tối thiểu">
             </div>
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Thời gian sử dụng:</label>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <input type="text" id="start_date" name="start_date" class="form-control coupon-create-input required-field" placeholder="Chọn thời gian">
+                       <input type="text" id="start_date" name="start_date" value="{{ request.form.get('start_date', '') }}" class="form-control coupon-create-input required-field" placeholder="Thời gian bắt đầu">
 
                     </div>
                     <div class="col-md-6">
-                        <input type="text" id="end_date" name="end_date" class="form-control coupon-create-input required-field" placeholder="Chọn thời gian">
+                       <input type="text" id="end_date" name="end_date" value="{{ request.form.get('end_date', '') }}" class="form-control coupon-create-input required-field" placeholder="Thời gian kết thúc">
                     </div>
                 </div>
             </div>
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Số lượt sử dụng:</label>
-                <input type="number" name="quantity" class="form-control coupon-create-input required-field" placeholder="Nhập số lượt sử dụng">
+               <input type="number" name="quantity" value="{{ request.form.get('quantity', '') }}" class="form-control coupon-create-input required-field" placeholder="Nhập số lượt sử dụng">
             </div>
 
             <div class="coupon-create-group">
@@ -102,7 +117,7 @@
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Ghi chú:</label>
-                <textarea name="description" rows="4" class="form-control coupon-create-input" placeholder="Thêm ghi chú của bạn"></textarea>
+                <textarea name="description" rows="4" class="form-control coupon-create-input" placeholder="Thêm ghi chú của bạn">{{ request.form.get('description', '') }}</textarea>
             </div>
         </div>
 
@@ -111,7 +126,8 @@
 
     <div class="coupon-apply-row">
         <label class="coupon-radio-big">
-            <input type="radio" name="apply_scope" value="all_product" checked>
+          <input type="radio" name="apply_scope" value="all_product"
+       {% if request.form.get('apply_scope', 'all_product') == 'all_product' %}checked{% endif %}>
             <span>Toàn bộ sản phẩm</span>
         </label>
 

@@ -37,7 +37,33 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         updateScopePanel();
     }
+    // ===== TOGGLE MAX DISCOUNT WHEN PERCENTAGE =====
+const discountRadios = document.querySelectorAll('input[name="discount_kind"]');
+const maxDiscountGroup = document.getElementById("max-discount-group");
+const maxDiscountInput = document.querySelector('input[name="max_discount_value"]');
 
+function toggleMaxDiscount() {
+    const selected = document.querySelector('input[name="discount_kind"]:checked');
+
+    if (!maxDiscountGroup) return;
+
+    if (selected && selected.value === "percentage") {
+        maxDiscountGroup.style.display = "block";
+    } else {
+        maxDiscountGroup.style.display = "none";
+        if (maxDiscountInput) {
+            maxDiscountInput.value = "";
+            maxDiscountInput.classList.remove("is-invalid");
+        }
+    }
+}
+
+if (discountRadios.length) {
+    discountRadios.forEach(radio => {
+        radio.addEventListener("change", toggleMaxDiscount);
+    });
+    toggleMaxDiscount();
+}
     const searchInput = document.getElementById("product-search");
     const productCards = document.querySelectorAll(".scope-product-card");
 
@@ -130,4 +156,25 @@ if (form) {
         }
     });
 }
+// ===== EDIT FORM: TOGGLE MAX DISCOUNT =====
+    const editDiscountKind = document.getElementById("edit_discount_kind");
+    const editMaxDiscountGroup = document.getElementById("edit-max-discount-group");
+
+    function toggleEditMaxDiscount() {
+        if (!editDiscountKind || !editMaxDiscountGroup) return;
+
+        if (editDiscountKind.value === "percentage") {
+            editMaxDiscountGroup.style.display = "block";
+        } else {
+            editMaxDiscountGroup.style.display = "none";
+            const input = editMaxDiscountGroup.querySelector('input[name="max_discount_value"]');
+            if (input) input.value = "";
+        }
+    }
+
+    if (editDiscountKind) {
+        editDiscountKind.addEventListener("change", toggleEditMaxDiscount);
+        toggleEditMaxDiscount();
+    }
+
 });

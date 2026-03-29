@@ -1,4 +1,4 @@
-    <style>
+
     body {
         background-color: #f7f8fa;
         color: #212529;
@@ -115,4 +115,17 @@
 }
 
 }
-</style>
+
+/* Fix select dropdown arrow nằm giữa */
+.coupon-input.form-select {
+    height: 44px;              /* đồng bộ chiều cao */
+    padding-top: 0;
+    padding-bottom: 0;
+    display: flex;
+    align-items: center;       /* căn giữa nội dung */
+}
+
+/* Fix riêng icon mũi tên */
+.coupon-input.form-select {
+    background-position: right 12px center !important;
+}

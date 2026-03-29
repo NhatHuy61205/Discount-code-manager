@@ -736,3 +736,16 @@ input[type="checkbox"] {
     padding: 10px;
     border-radius: 8px;
 }
+.coupon-input.form-select {
+    height: 44px;
+    line-height: 1.5;
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-right: 42px;
+    background-position: right 14px center !important;
+    background-size: 16px 12px;
+}
+
+.coupon-input.form-select:focus {
+    background-position: right 14px center !important;
+}

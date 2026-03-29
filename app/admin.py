@@ -75,7 +75,7 @@ class ProductDetailAdminView(AuthenticatedView):
 class CouponAdminView(AuthenticatedView):
     list_template = "admin/coupon/coupon_list.html"
     create_template = "admin/coupon/coupon_create.html"
-    edit_template = "admin/model/edit.html"
+    edit_template = "admin/coupon/coupon_edit.html"
 
     form_columns = [
         'name',
@@ -112,7 +112,45 @@ class CouponAdminView(AuthenticatedView):
             except (TypeError, ValueError):
                 continue
         return result
-
+    def _get_coupon_form_data(self, coupon=None):
+        return {
+            "name": request.form.get("name", coupon.name if coupon else "").strip() if request.method == "POST" else (coupon.name if coupon else ""),
+            "code": request.form.get("code", coupon.code if coupon else "").strip().upper() if request.method == "POST" else (coupon.code if coupon else ""),
+            "description": request.form.get("description", coupon.description if coupon else "").strip() if request.method == "POST" else (coupon.description if coupon else ""),
+            "discount_kind": request.form.get(
+                "discount_kind",
+                coupon.discount_kind.value if coupon and coupon.discount_kind else "fixed"
+            ),
+            "discount_value": request.form.get(
+                "discount_value",
+                coupon.discount_value if coupon else ""
+            ),
+            "max_discount_value": request.form.get(
+                "max_discount_value",
+                coupon.max_discount_value if coupon and coupon.max_discount_value is not None else ""
+            ),
+            "min_order_value": request.form.get(
+                "min_order_value",
+                coupon.min_order_value if coupon else ""
+            ),
+            "quantity": request.form.get(
+                "quantity",
+                coupon.quantity if coupon else ""
+            ),
+            "used_count": coupon.used_count if coupon else 0,
+            "start_date": request.form.get(
+                "start_date",
+                coupon.start_date.strftime("%d/%m/%Y %H:%M") if coupon and coupon.start_date else ""
+            ),
+            "end_date": request.form.get(
+                "end_date",
+                coupon.end_date.strftime("%d/%m/%Y %H:%M") if coupon and coupon.end_date else ""
+            ),
+            "status": request.form.get(
+                "status",
+                coupon.status.name if coupon and coupon.status else "ACTIVE"
+            ),
+        }
     def _build_query(self):
         query = Coupon.query
 
@@ -195,7 +233,8 @@ class CouponAdminView(AuthenticatedView):
                 discount_kind_raw = request.form.get("discount_kind", "fixed")
                 apply_scope = request.form.get("apply_scope", "all_product")
                 target_type_raw = request.form.get("target_type", "all")
-
+                max_discount_value = request.form.get("max_discount_value")
+                max_discount_value = float(max_discount_value) if max_discount_value else None
                 discount_value = float(request.form.get("discount_value") or 0)
                 min_order_value = float(request.form.get("min_order_value") or 0)
                 quantity = int(request.form.get("quantity") or 0)
@@ -208,7 +247,9 @@ class CouponAdminView(AuthenticatedView):
 
                 category_ids = self._to_int_list(request.form.getlist("category_ids"))
                 product_ids = self._to_int_list(request.form.getlist("product_ids"))
-
+                print("discount_kind_raw =", request.form.get("discount_kind"))
+                print("discount_kind_list =", request.form.getlist("discount_kind"))
+                print("FORM DATA =", request.form)
                 if not name:
                     raise ValueError("Vui lòng nhập tên mã giảm giá.")
 
@@ -220,6 +261,9 @@ class CouponAdminView(AuthenticatedView):
 
                 if discount_value <= 0:
                     raise ValueError("Mức giảm phải lớn hơn 0.")
+
+                if discount_kind_raw == "percentage" and discount_value > 50:
+                    raise ValueError("Mã giảm theo % không được vượt quá 50%.")
 
                 if quantity < 0:
                     raise ValueError("Số lượt sử dụng không hợp lệ.")
@@ -234,10 +278,9 @@ class CouponAdminView(AuthenticatedView):
                     raise ValueError("Bạn phải chọn ít nhất 1 sản phẩm.")
 
                 discount_kind = (
-                    DiscountKind.PERCENT
+                    DiscountKind.PERCENTAGE
                     if discount_kind_raw == "percentage"
-                    else DiscountKind.FIXED
-                )
+                    else DiscountKind.FIXED )
 
                 target_type = (
                     CouponTargetType.LOYAL_1Y
@@ -270,6 +313,7 @@ class CouponAdminView(AuthenticatedView):
                     end_date=end_date,
                     show_public=show_public,
                     usage_limit_per_user=usage_limit_per_user,
+                    max_discount_value=max_discount_value,
                     active=True
                 )
 
@@ -305,6 +349,113 @@ class CouponAdminView(AuthenticatedView):
             self.create_template,
             categories=categories,
             products=products
+        )
+    @expose("/edit/<int:coupon_id>", methods=["GET", "POST"])
+    def edit_view(self, coupon_id):
+        coupon = Coupon.query.get_or_404(coupon_id)
+
+        if request.method == "POST":
+            form_data = self._get_coupon_form_data(coupon)
+
+            try:
+                name = form_data["name"]
+                code = form_data["code"]
+                description = form_data["description"]
+
+                discount_kind_raw = form_data["discount_kind"]
+                discount_value = float(form_data["discount_value"] or 0)
+                min_order_value = float(form_data["min_order_value"] or 0)
+                quantity = int(form_data["quantity"] or 0)
+
+                max_discount_value_raw = form_data["max_discount_value"]
+                max_discount_value = float(max_discount_value_raw) if str(max_discount_value_raw).strip() != "" else None
+
+                start_date = self._parse_datetime_local(form_data["start_date"])
+                end_date = self._parse_datetime_local(form_data["end_date"])
+
+                status_raw = form_data["status"]
+
+                if not name:
+                    raise ValueError("Vui lòng nhập tên mã giảm giá.")
+
+                if not code:
+                    raise ValueError("Vui lòng nhập code mã giảm giá.")
+
+                duplicate_coupon = Coupon.query.filter(
+                    Coupon.code == code,
+                    Coupon.id != coupon.id
+                ).first()
+                if duplicate_coupon:
+                    raise ValueError("Code mã giảm giá đã tồn tại.")
+
+                if discount_value <= 0:
+                    raise ValueError("Mức giảm phải lớn hơn 0.")
+
+                if discount_kind_raw == "percentage" and discount_value > 50:
+                    raise ValueError("Mã giảm theo % không được vượt quá 50%.")
+
+                if discount_kind_raw == "percentage" and max_discount_value is not None and max_discount_value <= 0:
+                    raise ValueError("Giảm tối đa phải lớn hơn 0.")
+
+                if quantity < 0:
+                    raise ValueError("Số lượng không hợp lệ.")
+
+                if min_order_value < 0:
+                    raise ValueError("Giá trị đơn tối thiểu không hợp lệ.")
+
+                if start_date and end_date and start_date > end_date:
+                    raise ValueError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.")
+
+                discount_kind = (
+                    DiscountKind.PERCENTAGE
+                    if discount_kind_raw == "percentage"
+                    else DiscountKind.FIXED
+                )
+
+                status = (
+                    CouponStatus.INACTIVE
+                    if status_raw == "INACTIVE"
+                    else CouponStatus.ACTIVE
+                )
+
+                coupon.name = name
+                coupon.code = code
+                coupon.description = description
+                coupon.discount_kind = discount_kind
+                coupon.discount_value = discount_value
+                coupon.min_order_value = min_order_value
+                coupon.quantity = quantity
+                coupon.max_discount_value = max_discount_value if discount_kind == DiscountKind.PERCENTAGE else None
+                coupon.start_date = start_date
+                coupon.end_date = end_date
+                coupon.status = status
+
+                db.session.commit()
+                flash("Thay đổi mã giảm giá thành công!", "success")
+                return redirect(url_for(".index_view"))
+
+            except ValueError as e:
+                db.session.rollback()
+                flash(str(e), "danger")
+                return self.render(
+                    self.edit_template,
+                    model=coupon,
+                    form_data=form_data
+                )
+
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Có lỗi xảy ra khi cập nhật mã: {e}", "danger")
+                return self.render(
+                    self.edit_template,
+                    model=coupon,
+                    form_data=form_data
+                )
+
+        return self.render(
+            self.edit_template,
+            model=coupon,
+            form_data=self._get_coupon_form_data(coupon)
         )
     @expose("/delete/<int:coupon_id>", methods=["POST"])
     def delete_coupon(self, coupon_id):

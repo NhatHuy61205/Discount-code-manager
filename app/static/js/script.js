@@ -176,5 +176,153 @@ if (form) {
         editDiscountKind.addEventListener("change", toggleEditMaxDiscount);
         toggleEditMaxDiscount();
     }
+    const requireLoginButtons = document.querySelectorAll(".require-login");
+
+if (requireLoginButtons.length) {
+    requireLoginButtons.forEach(btn => {
+        btn.addEventListener("click", function (e) {
+            e.preventDefault();
+
+            const modal = new bootstrap.Modal(
+                document.getElementById("loginRequiredModal")
+            );
+            modal.show();
+        });
+    });
+}
+// ===== PRODUCT DETAIL QUANTITY =====
+const qtyInput = document.getElementById("qty");
+const decreaseBtn = document.getElementById("qty-decrease");
+const increaseBtn = document.getElementById("qty-increase");
+const addToCartBtn = document.getElementById("add-to-cart-btn");
+const buyNowBtn = document.getElementById("buy-now-btn");
+const qtyError = document.getElementById("qty-error");
+
+if (qtyInput && decreaseBtn && increaseBtn && addToCartBtn && buyNowBtn && qtyError) {
+    const min = parseInt(qtyInput.min) || 1;
+    const max = parseInt(qtyInput.max) || 0;
+
+    function disableActionButton(btn, disabled) {
+        if (!btn) return;
+
+        if (disabled) {
+            btn.classList.add("disabled");
+            btn.setAttribute("aria-disabled", "true");
+            btn.style.pointerEvents = "none";
+            btn.style.opacity = "0.65";
+        } else {
+            btn.classList.remove("disabled");
+            btn.removeAttribute("aria-disabled");
+            btn.style.pointerEvents = "";
+            btn.style.opacity = "";
+        }
+    }
+
+    function syncQuantityState() {
+        let value = parseInt(qtyInput.value);
+
+        if (isNaN(value)) {
+            value = min;
+        }
+
+        if (value < min) {
+            value = min;
+        }
+
+        const isOverStock = value > max;
+        const isOutOfStock = max <= 0;
+
+        if (isOutOfStock) {
+            qtyInput.value = 0;
+            qtyInput.setAttribute("readonly", "readonly");
+            decreaseBtn.disabled = true;
+            increaseBtn.disabled = true;
+            disableActionButton(addToCartBtn, true);
+            disableActionButton(buyNowBtn, true);
+
+            qtyError.classList.remove("d-none");
+            qtyError.textContent = "Sản phẩm hiện đã hết hàng.";
+            return;
+        } else {
+            qtyInput.removeAttribute("readonly");
+        }
+
+        if (isOverStock) {
+            qtyInput.value = max;
+            qtyError.classList.remove("d-none");
+            qtyError.textContent = "Số lượng đặt không được vượt quá số lượng tồn kho.";
+        } else {
+            qtyInput.value = value;
+            qtyError.classList.add("d-none");
+        }
+
+        const currentValue = parseInt(qtyInput.value) || min;
+
+        decreaseBtn.disabled = currentValue <= min;
+        increaseBtn.disabled = currentValue >= max;
+
+        const shouldDisableAction = currentValue > max || currentValue < min;
+        disableActionButton(addToCartBtn, shouldDisableAction);
+        disableActionButton(buyNowBtn, shouldDisableAction);
+    }
+
+    decreaseBtn.addEventListener("click", function () {
+        let current = parseInt(qtyInput.value) || min;
+        if (current > min) {
+            qtyInput.value = current - 1;
+        }
+        syncQuantityState();
+    });
+
+    increaseBtn.addEventListener("click", function () {
+        let current = parseInt(qtyInput.value) || min;
+        if (current < max) {
+            qtyInput.value = current + 1;
+        }
+        syncQuantityState();
+    });
+
+    qtyInput.addEventListener("input", function () {
+        this.value = this.value.replace(/[^\d]/g, "");
+        syncQuantityState();
+    });
+
+    qtyInput.addEventListener("blur", function () {
+        syncQuantityState();
+    });
+
+    syncQuantityState();
+}
+if (addToCartBtn) {
+    addToCartBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        const qty = document.getElementById("qty").value;
+        const productId = window.location.pathname.split("/").pop();
+
+        fetch("/api/add-to-cart", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: `product_id=${productId}&quantity=${qty}`
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                updateCartBadge(data.count);
+                alert("Đã thêm vào giỏ hàng");
+            } else {
+                alert(data.error);
+            }
+        });
+    });
+}
+function updateCartBadge(count) {
+    const badge = document.getElementById("cart-badge");
+    if (badge) {
+        badge.innerText = count;
+    }
+}
 
 });

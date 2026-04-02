@@ -1,10 +1,14 @@
 import hashlib
+import re
 from datetime import datetime
 
 from app import app, db
 from app import login
-from app.models import User, CouponStatus, CouponCondition
+from app.models import User, CouponStatus, CouponCondition, Product, CouponApplyType, DiscountKind, Coupon, Category, \
+    CouponCategory, CouponProduct, CouponTargetType
 
+
+# USER
 
 def auth_user(username, password):
     password = hashlib.md5(password.encode('utf-8')).hexdigest()
@@ -47,6 +51,62 @@ def add_user(name, username, email, phone, address, password):
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
+
+def register_user(name, username, email, phone, address, password, confirm):
+    name = (name or "").strip()
+    username = (username or "").strip()
+    email = (email or "").strip()
+    phone = (phone or "").strip()
+    address = (address or "").strip()
+    password = password or ""
+    confirm = confirm or ""
+
+    if not all([name, username, email, address, password, confirm]):
+        raise ValueError("Vui lòng nhập đầy đủ thông tin")
+
+    if len(password) < 8:
+        raise ValueError("Mật khẩu phải tối thiểu 8 ký tự")
+
+    if not re.search(r"[A-Za-z]", password):
+        raise ValueError("Mật khẩu phải chứa chữ")
+
+    if not re.search(r"\d", password):
+        raise ValueError("Mật khẩu phải chứa số")
+
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        raise ValueError("Mật khẩu phải chứa ký tự đặc biệt")
+
+    if password != confirm:
+        raise ValueError("Mật khẩu không khớp")
+
+    if phone and not re.fullmatch(r"\d{10}", phone):
+        raise ValueError("Số điện thoại phải đúng 10 chữ số")
+
+    if get_user_by_username(username):
+        raise ValueError("Tên đăng nhập đã tồn tại")
+
+    if get_user_by_email(email):
+        raise ValueError("Email đã tồn tại")
+
+    if phone and get_user_by_phone(phone):
+        raise ValueError("Số điện thoại đã được sử dụng")
+
+    password = hashlib.md5(password.encode("utf-8")).hexdigest()
+
+    user = User(
+        name=name,
+        username=username,
+        email=email,
+        phone=phone,
+        address=address,
+        password=password
+    )
+
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+# COUPON
 def get_remaining_quantity(coupon):
     """
     Số lượng còn lại = tổng - đã dùng
@@ -88,3 +148,350 @@ def get_coupon_condition(coupon):
         return CouponCondition.OUT_OF_STOCK
 
     return CouponCondition.AVAILABLE
+
+def get_valid_coupons():
+    now = datetime.now()
+    return Coupon.query.filter(
+        Coupon.active == True,
+        Coupon.status == CouponStatus.ACTIVE,
+        Coupon.start_date <= now,
+        Coupon.end_date >= now,
+        Coupon.quantity > Coupon.used_count
+    ).all()
+
+def is_coupon_applicable_to_product(coupon, product):
+    if coupon.apply_type == CouponApplyType.ALL_PRODUCT:
+        return True
+
+    if coupon.apply_type == CouponApplyType.CATEGORY:
+        cate_ids = [cc.category_id for cc in coupon.coupon_categories]
+        return product.cate_id in cate_ids
+
+    if coupon.apply_type == CouponApplyType.PRODUCT:
+        product_ids = [cp.product_id for cp in coupon.coupon_products]
+        return product.id in product_ids
+
+    return False
+
+def calculate_coupon_discount_for_product(coupon, product):
+    if coupon.discount_kind == DiscountKind.PERCENTAGE:
+        discount = product.price * (coupon.discount_value / 100)
+        if coupon.max_discount_value:
+            discount = min(discount, coupon.max_discount_value)
+        return discount
+
+    return coupon.discount_value
+
+def get_best_coupon_for_product(product):
+    coupons = get_valid_coupons()
+
+    best_coupon = None
+    best_discount = 0
+
+    for coupon in coupons:
+        if not is_coupon_applicable_to_product(coupon, product):
+            continue
+
+        discount = calculate_coupon_discount_for_product(coupon, product)
+
+        if discount > best_discount:
+            best_discount = discount
+            best_coupon = coupon
+
+    return best_coupon, best_discount
+
+# CART
+
+def get_cart_items_by_user(user):
+    cart = user.carts
+    return cart.cart_items if cart else []
+
+
+# PRODUCT
+
+def get_active_products():
+    return Product.query.filter_by(active=True).all()
+
+def get_product_by_id(product_id):
+    return Product.query.get_or_404(product_id)
+def get_suggested_products(limit=10):
+    return Product.query.filter_by(active=True).limit(limit).all()
+
+
+
+# ========= ADMIN =========
+def parse_datetime_local(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%d/%m/%Y %H:%M")
+    except ValueError:
+        return None
+
+
+def to_int_list(values):
+    result = []
+    for v in values:
+        try:
+            result.append(int(v))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+def get_coupon_form_data(request_form, coupon=None):
+    return {
+        "name": request_form.get("name", coupon.name if coupon else "").strip(),
+        "code": request_form.get("code", coupon.code if coupon else "").strip().upper(),
+        "description": request_form.get("description", coupon.description if coupon else "").strip(),
+        "discount_kind": request_form.get(
+            "discount_kind",
+            coupon.discount_kind.value if coupon and coupon.discount_kind else "fixed"
+        ),
+        "discount_value": request_form.get(
+            "discount_value",
+            coupon.discount_value if coupon else ""
+        ),
+        "max_discount_value": request_form.get(
+            "max_discount_value",
+            coupon.max_discount_value if coupon and coupon.max_discount_value is not None else ""
+        ),
+        "min_order_value": request_form.get(
+            "min_order_value",
+            coupon.min_order_value if coupon else ""
+        ),
+        "quantity": request_form.get(
+            "quantity",
+            coupon.quantity if coupon else ""
+        ),
+        "used_count": coupon.used_count if coupon else 0,
+        "start_date": request_form.get(
+            "start_date",
+            coupon.start_date.strftime("%d/%m/%Y %H:%M") if coupon and coupon.start_date else ""
+        ),
+        "end_date": request_form.get(
+            "end_date",
+            coupon.end_date.strftime("%d/%m/%Y %H:%M") if coupon and coupon.end_date else ""
+        ),
+        "status": request_form.get(
+            "status",
+            coupon.status.name if coupon and coupon.status else "ACTIVE"
+        ),
+    }
+
+
+def query_coupons_for_admin(args):
+    query = Coupon.query
+
+    q = args.get("q", "").strip()
+    apply_type = args.get("apply_type", "").strip()
+    condition = args.get("condition", "").strip()
+    status = args.get("status", "").strip()
+    created_date = args.get("created_date", "").strip()
+    start_date = args.get("start_date", "").strip()
+
+    if q:
+        query = query.filter(
+            (Coupon.name.ilike(f"%{q}%")) |
+            (Coupon.code.ilike(f"%{q}%")) |
+            (Coupon.description.ilike(f"%{q}%"))
+        )
+
+    if apply_type:
+        query = query.filter(Coupon.apply_type == apply_type)
+
+    if status:
+        query = query.filter(Coupon.status == status)
+
+    if created_date:
+        query = query.filter(db.func.date(Coupon.created_date) == created_date)
+
+    if start_date:
+        query = query.filter(db.func.date(Coupon.start_date) == start_date)
+
+    coupons = query.order_by(Coupon.id.desc()).all()
+
+    if condition:
+        coupons = [c for c in coupons if get_coupon_condition(c).value == condition]
+
+    return coupons
+
+
+def get_coupon_create_dependencies():
+    categories = Category.query.filter_by(active=True).order_by(Category.name.asc()).all()
+    products = Product.query.filter_by(active=True) \
+        .order_by(Product.stock_quantity.desc(), Product.name.asc()) \
+        .all()
+    return categories, products
+
+# Tạo mã giảm giá
+def create_coupon_from_form(form):
+    name = form.get("name", "").strip()
+    code = form.get("code", "").strip().upper()
+    description = form.get("description", "").strip()
+
+    discount_kind_raw = form.get("discount_kind", "fixed")
+    apply_scope = form.get("apply_scope", "all_product")
+    target_type_raw = form.get("target_type", "all")
+
+    max_discount_value = form.get("max_discount_value")
+    max_discount_value = float(max_discount_value) if max_discount_value else None
+
+    discount_value = float(form.get("discount_value") or 0)
+    min_order_value = float(form.get("min_order_value") or 0)
+    quantity = int(form.get("quantity") or 0)
+
+    start_date = parse_datetime_local(form.get("start_date"))
+    end_date = parse_datetime_local(form.get("end_date"))
+
+    usage_limit_type = form.get("usage_limit_type", "many")
+    show_public = bool(form.get("show_public"))
+
+    category_ids = to_int_list(form.getlist("category_ids"))
+    product_ids = to_int_list(form.getlist("product_ids"))
+
+    if not name:
+        raise ValueError("Vui lòng nhập tên mã giảm giá.")
+
+    if not code:
+        raise ValueError("Vui lòng nhập code mã giảm giá.")
+
+    if Coupon.query.filter(Coupon.code == code).first():
+        raise ValueError("Code mã giảm giá đã tồn tại.")
+
+    if discount_value <= 0:
+        raise ValueError("Mức giảm phải lớn hơn 0.")
+
+    if discount_kind_raw == "percentage" and discount_value > 50:
+        raise ValueError("Mã giảm theo % không được vượt quá 50%.")
+
+    if quantity < 0:
+        raise ValueError("Số lượt sử dụng không hợp lệ.")
+
+    if start_date and end_date and start_date > end_date:
+        raise ValueError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.")
+
+    if apply_scope == "selected_category" and not category_ids:
+        raise ValueError("Bạn phải chọn ít nhất 1 ngành hàng.")
+
+    if apply_scope == "selected_product" and not product_ids:
+        raise ValueError("Bạn phải chọn ít nhất 1 sản phẩm.")
+
+    discount_kind = DiscountKind.PERCENTAGE if discount_kind_raw == "percentage" else DiscountKind.FIXED
+    target_type = CouponTargetType.LOYAL_1Y if target_type_raw == "old_customer" else CouponTargetType.ALL
+
+    if apply_scope == "selected_category":
+        apply_type = CouponApplyType.CATEGORY
+    elif apply_scope == "selected_product":
+        apply_type = CouponApplyType.PRODUCT
+    else:
+        apply_type = CouponApplyType.ALL_PRODUCT
+
+    usage_limit_per_user = 999999 if usage_limit_type == "many" else 1
+
+    coupon = Coupon(
+        name=name,
+        code=code,
+        description=description,
+        discount_kind=discount_kind,
+        discount_value=discount_value,
+        apply_type=apply_type,
+        target_type=target_type,
+        status=CouponStatus.ACTIVE,
+        min_order_value=min_order_value,
+        quantity=quantity,
+        used_count=0,
+        start_date=start_date,
+        end_date=end_date,
+        show_public=show_public,
+        usage_limit_per_user=usage_limit_per_user,
+        max_discount_value=max_discount_value,
+        active=True
+    )
+
+    db.session.add(coupon)
+    db.session.flush()
+
+    if apply_type == CouponApplyType.CATEGORY:
+        for cate_id in category_ids:
+            db.session.add(CouponCategory(coupon_id=coupon.id, category_id=cate_id))
+
+    if apply_type == CouponApplyType.PRODUCT:
+        for product_id in product_ids:
+            db.session.add(CouponProduct(coupon_id=coupon.id, product_id=product_id))
+
+    db.session.commit()
+    return coupon
+
+# Sửa mã giảm giá
+def update_coupon_from_form(coupon, form_data):
+    name = form_data["name"]
+    code = form_data["code"]
+    description = form_data["description"]
+
+    discount_kind_raw = form_data["discount_kind"]
+    discount_value = float(form_data["discount_value"] or 0)
+    min_order_value = float(form_data["min_order_value"] or 0)
+    quantity = int(form_data["quantity"] or 0)
+
+    max_discount_value_raw = form_data["max_discount_value"]
+    max_discount_value = float(max_discount_value_raw) if str(max_discount_value_raw).strip() != "" else None
+
+    start_date = parse_datetime_local(form_data["start_date"])
+    end_date = parse_datetime_local(form_data["end_date"])
+    status_raw = form_data["status"]
+
+    if not name:
+        raise ValueError("Vui lòng nhập tên mã giảm giá.")
+
+    if not code:
+        raise ValueError("Vui lòng nhập code mã giảm giá.")
+
+    duplicate_coupon = Coupon.query.filter(
+        Coupon.code == code,
+        Coupon.id != coupon.id
+    ).first()
+    if duplicate_coupon:
+        raise ValueError("Code mã giảm giá đã tồn tại.")
+
+    if discount_value <= 0:
+        raise ValueError("Mức giảm phải lớn hơn 0.")
+
+    if discount_kind_raw == "percentage" and discount_value > 50:
+        raise ValueError("Mã giảm theo % không được vượt quá 50%.")
+
+    if discount_kind_raw == "percentage" and max_discount_value is not None and max_discount_value <= 0:
+        raise ValueError("Giảm tối đa phải lớn hơn 0.")
+
+    if quantity < 0:
+        raise ValueError("Số lượng không hợp lệ.")
+
+    if min_order_value < 0:
+        raise ValueError("Giá trị đơn tối thiểu không hợp lệ.")
+
+    if start_date and end_date and start_date > end_date:
+        raise ValueError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.")
+
+    discount_kind = DiscountKind.PERCENTAGE if discount_kind_raw == "percentage" else DiscountKind.FIXED
+    status = CouponStatus.INACTIVE if status_raw == "INACTIVE" else CouponStatus.ACTIVE
+
+    coupon.name = name
+    coupon.code = code
+    coupon.description = description
+    coupon.discount_kind = discount_kind
+    coupon.discount_value = discount_value
+    coupon.min_order_value = min_order_value
+    coupon.quantity = quantity
+    coupon.max_discount_value = max_discount_value if discount_kind == DiscountKind.PERCENTAGE else None
+    coupon.start_date = start_date
+    coupon.end_date = end_date
+    coupon.status = status
+
+    db.session.commit()
+    return coupon
+
+# Xóa mã giảm giá
+def delete_coupon_by_id(coupon_id):
+    coupon = Coupon.query.get_or_404(coupon_id)
+    db.session.delete(coupon)
+    db.session.commit()
+    return coupon

@@ -116,7 +116,14 @@
                     </div>
 
                     <div class="d-grid mt-auto">
-                        <a href="#" class="btn btn-outline-danger rounded-pill">Xem chi tiết</a>
+                        {% if current_user.is_authenticated %}
+    <a href="{{ url_for('product_detail', product_id=product.id) }}"
+   class="btn btn-outline-danger rounded-pill">
+   Xem chi tiết
+</a>
+{% else %}
+    <a href="#" class="btn btn-outline-danger rounded-pill require-login">Xem chi tiết</a>
+{% endif %}
                     </div>
                 </div>
             </div>

@@ -27,9 +27,9 @@
             Đăng xuất
         </a>
 
-        <a href="#" class="btn btn-outline-danger rounded-pill px-3">
-            Giỏ hàng
-        </a>
+        <a href="{{ url_for('cart') }}" class="btn btn-outline-danger rounded-pill px-3">
+    Giỏ hàng
+</a>
     {% else %}
         <a href="{{ url_for('login') }}" class="text-decoration-none text-dark fw-medium">
             Đăng nhập
@@ -39,9 +39,20 @@
     Đăng ký
 </a>
 
-        <a href="#" class="btn btn-outline-danger rounded-pill px-3">
-            Giỏ hàng
-        </a>
+        {% if current_user.is_authenticated %}
+    <a href="/cart" class="position-relative text-decoration-none">
+    <i class="bi bi-cart3 fs-4 text-dark"></i>
+
+    <span id="cart-badge"
+          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+        0
+    </span>
+</a>
+{% else %}
+    <a href="#" class="btn btn-outline-danger rounded-pill px-3 require-login">
+        Giỏ hàng
+    </a>
+{% endif %}
     {% endif %}
 </div>
         </div>

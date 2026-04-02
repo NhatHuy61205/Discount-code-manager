@@ -1,0 +1,118 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- LEFT: IMAGE -->
+    <div class="col-md-6">
+        <div class="bg-white p-3 rounded shadow-sm">
+            <img src="{{ product.image }}"
+                 class="img-fluid rounded"
+                 alt="{{ product.name }}">
+        </div>
+    </div>
+
+    <!-- RIGHT: INFO -->
+    <div class="col-md-6">
+
+        <h3 class="fw-bold mb-3">{{ product.name }}</h3>
+
+        <h4 class="text-danger mb-3">
+            {{ "{:,.0f}".format(product.price).replace(",", ".") }}đ
+        </h4>
+
+        <!-- COUPON -->
+        {% if best_coupon %}
+        <div class="mb-3 p-3 border rounded bg-light">
+            <div class="fw-semibold text-success">
+                🔥 Mã tốt nhất: {{ best_coupon.code }}
+            </div>
+            <div class="small text-muted">
+                Giảm {{ "{:,.0f}".format(best_discount).replace(",", ".") }}đ
+            </div>
+        </div>
+        {% endif %}
+      <!-- WARRANTY -->
+{% if product.product_detail and product.product_detail.warranty %}
+<div class="mb-3 p-3 border rounded bg-light">
+    <div class="fw-semibold text-dark">
+         An tâm mua sắm: Bảo hành {{ product.product_detail.warranty }}
+    </div>
+</div>
+{% endif %}
+
+        <!-- DESCRIPTION -->
+        <p class="text-muted">
+            {{ product.product_detail.description if product.product_detail else '' }}
+        </p>
+
+        <!-- STOCK -->
+<div class="mb-2">
+    <span class="fw-semibold">Số lượng:</span>
+</div>
+
+<div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+    <div class="qty-box">
+        <button type="button" class="qty-btn" id="qty-decrease">−</button>
+
+        <input
+            id="qty"
+            type="number"
+            value="1"
+            min="1"
+            max="{{ product.stock_quantity }}"
+            class="qty-input"
+            inputmode="numeric"
+        >
+
+        <button type="button" class="qty-btn" id="qty-increase">+</button>
+    </div>
+
+    <span class="stock-text">
+        Còn {{ product.stock_quantity }} sản phẩm
+    </span>
+</div>
+
+<div id="qty-error" class="text-danger small mb-4 d-none">
+    Số lượng đặt không được vượt quá số lượng tồn kho.
+</div>
+
+
+
+
+        <!-- BUTTON -->
+        <div class="d-flex gap-3">
+    <a href="#" id="add-to-cart-btn" class="btn btn-outline-danger px-4">
+        Thêm vào giỏ hàng
+    </a>
+
+    <a href="#" id="buy-now-btn" class="btn btn-danger px-4">
+        Mua ngay
+    </a>
+</div>
+
+    </div>
+</div>
+
+<script>
+function increase() {
+    let input = document.getElementById("qty");
+    let max = parseInt(input.max);
+
+    if (parseInt(input.value) < max) {
+        input.value++;
+    }
+}
+
+function decrease() {
+    let input = document.getElementById("qty");
+
+    if (parseInt(input.value) > 1) {
+        input.value--;
+    }
+}
+</script>
+
+{% endblock %}

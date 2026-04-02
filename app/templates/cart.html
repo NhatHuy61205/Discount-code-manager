@@ -1,0 +1,146 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Giỏ hàng{% endblock %}
+
+{% block content %}
+<div class="cart-page">
+
+
+    <div class="cart-header container mb-4">
+    <h2 class="cart-title">Giỏ hàng</h2>
+</div>
+
+    {% if cart_items and cart_items|length > 0 %}
+    <!-- GIỎ HÀNG CÓ SẢN PHẨM -->
+    <section class="cart-list-section">
+        <div class="cart-table-wrapper">
+            <div class="cart-table-header d-none d-md-grid">
+    <div class="cart-head-product">Sản phẩm</div>
+    <div class="cart-head-price text-center">Đơn giá</div>
+    <div class="cart-head-qty text-center">Số lượng</div>
+    <div class="cart-head-total text-center">Số tiền</div>
+    <div class="cart-head-action text-center">Thao tác</div>
+</div>
+
+            {% for item in cart_items %}
+            <div class="cart-item-row">
+                <div class="cart-col-product">
+                    <div class="d-flex align-items-center gap-3">
+                        <input type="checkbox" class="form-check-input mt-0">
+                        <img
+                            src="{{ item.product.image if item.product and item.product.image else 'https://via.placeholder.com/120x120?text=No+Image' }}"
+                            alt="{{ item.product.name }}"
+                            class="cart-product-image"
+                        >
+                        <div>
+                            <h6 class="mb-1 fw-semibold">{{ item.product.name }}</h6>
+                            <div class="small text-muted">
+                                {{ item.product.product_detail.description if item.product.product_detail and item.product.product_detail.description else 'Chưa có mô tả sản phẩm.' }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cart-col-price text-center">
+                    <span class="text-muted text-decoration-line-through small">
+                        {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
+                    </span>
+                    <div class="cart-price-value">
+                        {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
+                    </div>
+                </div>
+
+                <div class="cart-col-qty text-center">
+                    <div class="cart-qty-box mx-auto">
+                        <button type="button" class="qty-btn">-</button>
+                        <input type="text" value="{{ item.quantity }}" class="qty-input" readonly>
+                        <button type="button" class="qty-btn">+</button>
+                    </div>
+                </div>
+
+                <div class="cart-col-total text-center ">
+                    {{ "{:,.0f}".format(item.price * item.quantity).replace(",", ".") }}đ
+                </div>
+
+                <div class="cart-col-action text-center">
+                    <a href="#" class="cart-delete-link">Xóa</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="cart-bottom-bar mt-3 p-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="checkAllCart">
+                    <label class="form-check-label" for="checkAllCart">
+                        Chọn tất cả
+                    </label>
+                </div>
+                <a href="#" class="text-decoration-none text-dark">Xóa</a>
+            </div>
+
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="text-end">
+                    <div class="small text-muted">Tổng thanh toán</div>
+                    <div class="cart-grand-total">0đ</div>
+                </div>
+                <a href="#" class="btn cart-buy-btn px-4 py-2">Mua hàng</a>
+            </div>
+        </div>
+    </section>
+
+    {% else %}
+    <!-- GIỎ HÀNG TRỐNG -->
+    <section class="cart-empty-section bg-light rounded-3 text-center py-5 mb-5">
+        <div class="cart-empty-inner">
+            <div class="cart-empty-icon-wrap mb-3">
+                <div class="cart-empty-circle">
+                    <i class="bi bi-bag-heart cart-empty-icon"></i>
+                </div>
+            </div>
+
+            <h4 class="cart-empty-title mb-3">Giỏ hàng của bạn còn trống</h4>
+
+            <a href="{{ url_for('index') }}#products" class="btn cart-buy-now-btn">
+                MUA NGAY
+            </a>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Gợi ý sản phẩm -->
+    <section class="cart-suggest-section mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="cart-suggest-title mb-0">CÓ THỂ BẠN CŨNG THÍCH</h4>
+            <a href="{{ url_for('index') }}#products" class="cart-see-all text-decoration-none">
+                Xem Tất Cả <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+
+        <div class="row g-4">
+            {% for product in suggested_products %}
+            <div class="col-6 col-md-4 col-lg-2-4">
+                <div class="card suggest-card h-100 border-0 shadow-sm">
+                    <div class="position-relative">
+                        <img
+                            src="{{ product.image if product.image else 'https://via.placeholder.com/400x400?text=No+Image' }}"
+                            class="card-img-top suggest-image"
+                            alt="{{ product.name }}"
+                        >
+                        <span class="suggest-badge">-10%</span>
+                    </div>
+
+                    <div class="card-body">
+                        <h6 class="suggest-name">{{ product.name }}</h6>
+                        <div class="suggest-price">
+                            {{ "{:,.0f}".format(product.price).replace(",", ".") }}đ
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

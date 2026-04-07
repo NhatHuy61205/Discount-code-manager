@@ -483,6 +483,7 @@ def create_coupon_from_form(form):
 
     start_date = parse_datetime_local(form.get("start_date"))
     end_date = parse_datetime_local(form.get("end_date"))
+    now = datetime.now()
 
     usage_limit_type = form.get("usage_limit_type", "many")
     show_public = bool(form.get("show_public"))
@@ -510,6 +511,9 @@ def create_coupon_from_form(form):
 
     if start_date and end_date and start_date > end_date:
         raise ValueError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.")
+
+    if start_date and start_date < now:
+        raise ValueError("Thời gian bắt đầu phải lớn hơn hoặc bằng thời điểm hiện tại.")
 
     if apply_scope == "selected_category" and not category_ids:
         raise ValueError("Bạn phải chọn ít nhất 1 ngành hàng.")
@@ -581,6 +585,7 @@ def update_coupon_from_form(coupon, form_data):
     start_date = parse_datetime_local(form_data["start_date"])
     end_date = parse_datetime_local(form_data["end_date"])
     status_raw = form_data["status"]
+    now = datetime.now()
 
     if not name:
         raise ValueError("Vui lòng nhập tên mã giảm giá.")
@@ -612,6 +617,9 @@ def update_coupon_from_form(coupon, form_data):
 
     if start_date and end_date and start_date > end_date:
         raise ValueError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.")
+
+    if start_date and start_date < now:
+        raise ValueError("Thời gian bắt đầu phải lớn hơn hoặc bằng thời điểm hiện tại.")
 
     discount_kind = DiscountKind.PERCENTAGE if discount_kind_raw == "percentage" else DiscountKind.FIXED
     status = CouponStatus.INACTIVE if status_raw == "INACTIVE" else CouponStatus.ACTIVE

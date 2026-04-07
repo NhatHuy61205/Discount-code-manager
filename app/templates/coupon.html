@@ -1,0 +1,280 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Mã giảm giá{% endblock %}
+
+{% block content %}
+<div class="coupon-user-page">
+    <div class="coupon-header container mb-4">
+        <h2 class="coupon-title">Kho voucher</h2>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="mb-4">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'danger' else category }} rounded-4">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="coupon-tabs-wrap">
+        <button
+                type="button"
+                class="coupon-tab-btn active"
+                data-coupon-tab="public">
+            Mã giảm giá ({{ public_coupons|length }})
+        </button>
+
+        <button
+                type="button"
+                class="coupon-tab-btn"
+                data-coupon-tab="mine">
+            Mã của tôi ({{ my_coupons|length }})
+        </button>
+        <button type="button" class="coupon-tab-btn" data-coupon-tab="used">
+            Mã đã sử dụng ({{ used_coupons|length }})
+        </button>
+    </div>
+
+    <div class="coupon-tab-panel active" id="coupon-tab-public">
+        <section class="coupon-user-section">
+            <div class="coupon-ticket-list">
+                {% for coupon in public_coupons %}
+                <div class="coupon-ticket-card">
+                    <div class="coupon-ticket-left">
+                        <div class="coupon-ticket-badge">Khuyến mãi</div>
+
+                        <div class="coupon-ticket-main">
+                            {% if coupon.discount_kind.value == "percentage" %}
+                            <div class="coupon-ticket-value">
+                                Giảm {{ coupon.discount_value|int }}%
+                            </div>
+                            {% if coupon.max_discount_value %}
+                            <div class="coupon-ticket-sub">
+                                Giảm tối đa {{ "{:,.0f}".format(coupon.max_discount_value).replace(",", ".") }}đ
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <div class="coupon-ticket-value">
+                                Giảm {{ "{:,.0f}".format(coupon.discount_value).replace(",", ".") }}đ
+                            </div>
+                            {% endif %}
+
+                            <div class="coupon-ticket-min-order">
+                                Đơn tối thiểu {{ "{:,.0f}".format(coupon.min_order_value or 0).replace(",", ".") }}đ
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="coupon-ticket-right">
+                        <div class="coupon-ticket-name">{{ coupon.name }}</div>
+
+                        {% if coupon.description %}
+                        <div class="coupon-ticket-desc">{{ coupon.description }}</div>
+                        {% endif %}
+
+                        <div class="coupon-ticket-code">Mã: {{ coupon.code }}</div>
+
+                        <div class="coupon-ticket-date">
+                            HSD:
+                            {% if coupon.end_date %}
+                            {{ coupon.end_date.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                            Không giới hạn
+                            {% endif %}
+                        </div>
+
+                        <form method="POST" action="{{ url_for('save_coupon', coupon_id=coupon.id) }}">
+                            <button type="submit" class="coupon-ticket-btn">
+                                Lưu mã
+                            </button>
+                            <button
+                                    type="button"
+                                    class="coupon-detail-btn"
+                                    data-name="{{ coupon.name }}"
+                                    data-code="{{ coupon.code }}"
+                                    data-start="{{ coupon.start_date.strftime('%Y-%m-%d %H:%M:%S') if coupon.start_date }}"
+                                    data-end="{{ coupon.end_date.strftime('%Y-%m-%d %H:%M:%S') if coupon.end_date }}"
+                                    data-min="{{ coupon.min_order_value }}"
+                                    data-apply="{{ get_apply_type_text(coupon) }}"
+                                    data-desc="{{ coupon.description }}"
+                            >
+                                Chi tiết
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% else %}
+                <div class="coupon-empty-box">
+                    Hiện chưa có mã giảm giá công khai nào.
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <div class="coupon-tab-panel" id="coupon-tab-mine">
+        <section class="coupon-user-section">
+            <div class="coupon-ticket-list">
+                {% for user_coupon in my_coupons %}
+                {% set coupon = user_coupon.coupon %}
+                <div class="coupon-ticket-card coupon-ticket-card-owned">
+                    <div class="coupon-ticket-left">
+                        <div class="coupon-ticket-badge">Đã lưu</div>
+
+                        <div class="coupon-ticket-main">
+                            {% if coupon.discount_kind.value == "percentage" %}
+                            <div class="coupon-ticket-value">
+                                Giảm {{ coupon.discount_value|int }}%
+                            </div>
+                            {% if coupon.max_discount_value %}
+                            <div class="coupon-ticket-sub">
+                                Giảm tối đa {{ "{:,.0f}".format(coupon.max_discount_value).replace(",", ".") }}đ
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            <div class="coupon-ticket-value">
+                                Giảm {{ "{:,.0f}".format(coupon.discount_value).replace(",", ".") }}đ
+                            </div>
+                            {% endif %}
+
+                            <div class="coupon-ticket-min-order">
+                                Đơn tối thiểu {{ "{:,.0f}".format(coupon.min_order_value or 0).replace(",", ".") }}đ
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="coupon-ticket-right">
+                        <div class="coupon-ticket-name">{{ coupon.name }}</div>
+
+                        {% if coupon.description %}
+                        <div class="coupon-ticket-desc">{{ coupon.description }}</div>
+                        {% endif %}
+
+                        <div class="coupon-ticket-code">Mã: {{ coupon.code }}</div>
+
+                        <div class="coupon-ticket-date">
+                            HSD:
+                            {% if coupon.end_date %}
+                            {{ coupon.end_date.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                            Không giới hạn
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button
+                                    type="button"
+                                    class="coupon-detail-btn"
+                                    data-name="{{ coupon.name }}"
+                                    data-code="{{ coupon.code }}"
+                                    data-start="{{ coupon.start_date.strftime('%Y-%m-%d %H:%M:%S') if coupon.start_date }}"
+                                    data-end="{{ coupon.end_date.strftime('%Y-%m-%d %H:%M:%S') if coupon.end_date }}"
+                                    data-min="{{ coupon.min_order_value }}"
+                                    data-apply="{{ get_apply_type_text(coupon) }}"
+                                    data-desc="{{ coupon.description }}"
+                            >
+                                Chi tiết
+                            </button>
+
+                            {% if user_coupon.is_used %}
+                            <button type="button" class="coupon-ticket-btn coupon-ticket-btn-disabled" disabled>
+                                Đã sử dụng
+                            </button>
+                            {% else %}
+                            <button type="button" class="coupon-ticket-btn coupon-ticket-btn-saved" disabled>
+                                Đã lưu
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="coupon-empty-box">
+                    Bạn chưa lưu mã nào.
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <div id="coupon-tab-used" class="coupon-tab-panel">
+        {% if used_coupons %}
+        {% for uc in used_coupons %}
+        <div class="coupon-ticket-card coupon-ticket-card-owned">
+
+            <div class="coupon-ticket-left">
+                <div class="coupon-ticket-badge">Đã sử dụng</div>
+                <div class="coupon-ticket-main">
+                    <div class="coupon-ticket-value">
+                        {{ uc.coupon.discount_value }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="coupon-ticket-right">
+                <div class="coupon-ticket-name">
+                    {{ uc.coupon.name }}
+                </div>
+
+                <div class="coupon-ticket-code">
+                    {{ uc.coupon.code }}
+                </div>
+
+                <div class="coupon-ticket-date">
+                    Đã dùng: {{ uc.used_at.strftime("%d/%m/%Y") if uc.used_at }}
+                </div>
+
+                <button class="coupon-ticket-btn coupon-ticket-btn-disabled">
+                    Đã sử dụng
+                </button>
+            </div>
+
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="coupon-empty-box">
+            Bạn chưa sử dụng mã nào
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="couponDetailModal" class="coupon-modal">
+    <div class="coupon-modal-content">
+        <h4 id="cd-name"></h4>
+
+        <div class="coupon-modal-row">
+            <span class="coupon-modal-label">Mã:</span>
+            <span id="cd-code"></span>
+        </div>
+
+        <div class="coupon-modal-row">
+            <span class="coupon-modal-label">Hạn sử dụng:</span>
+            <div id="cd-date" class="coupon-modal-value"></div>
+            <div id="cd-warning" class="fw-bold"></div>
+        </div>
+
+        <div class="coupon-modal-row">
+            <span class="coupon-modal-label">Điều kiện:</span>
+            <div id="cd-min" class="coupon-modal-value"></div>
+        </div>
+
+        <div class="coupon-modal-row">
+            <span class="coupon-modal-label">Áp dụng:</span>
+            <div id="cd-apply" class="coupon-modal-value"></div>
+        </div>
+
+        <div class="coupon-modal-row">
+            <span class="coupon-modal-label">Mô tả:</span>
+            <div id="cd-desc" class="coupon-modal-value"></div>
+        </div>
+
+        <button type="button" id="couponModalCloseBtn" class="coupon-modal-close-btn">
+            Đóng
+        </button>
+    </div>
+</div>
+{% endblock %}

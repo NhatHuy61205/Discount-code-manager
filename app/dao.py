@@ -5,7 +5,7 @@ from datetime import datetime
 from app import app, db
 from app import login
 from app.models import User, CouponStatus, CouponCondition, Product, CouponApplyType, DiscountKind, Coupon, Category, \
-    CouponCategory, CouponProduct, CouponTargetType
+    CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon
 
 
 # USER
@@ -17,6 +17,7 @@ def auth_user(username, password):
         User.password == password,
         User.active == True
     ).first()
+
 
 def get_user_by_username(username):
     return User.query.filter(User.username == username).first()
@@ -46,6 +47,7 @@ def add_user(name, username, email, phone, address, password):
     db.session.commit()
 
     return user
+
 
 @login.user_loader
 def load_user(user_id):
@@ -106,6 +108,7 @@ def register_user(name, username, email, phone, address, password, confirm):
     db.session.commit()
     return user
 
+
 # COUPON
 def get_remaining_quantity(coupon):
     """
@@ -133,7 +136,6 @@ def get_coupon_condition(coupon):
 
     now = datetime.now()
 
-
     if coupon.status == CouponStatus.INACTIVE or coupon.active is False:
         return CouponCondition.DISABLED
 
@@ -143,11 +145,11 @@ def get_coupon_condition(coupon):
     if coupon.start_date and coupon.start_date > now:
         return CouponCondition.UPCOMING
 
-
     if coupon.quantity is not None and (coupon.used_count or 0) >= (coupon.quantity or 0):
         return CouponCondition.OUT_OF_STOCK
 
     return CouponCondition.AVAILABLE
+
 
 def get_valid_coupons():
     now = datetime.now()
@@ -158,6 +160,7 @@ def get_valid_coupons():
         Coupon.end_date >= now,
         Coupon.quantity > Coupon.used_count
     ).all()
+
 
 def is_coupon_applicable_to_product(coupon, product):
     if coupon.apply_type == CouponApplyType.ALL_PRODUCT:
@@ -173,6 +176,7 @@ def is_coupon_applicable_to_product(coupon, product):
 
     return False
 
+
 def calculate_coupon_discount_for_product(coupon, product):
     if coupon.discount_kind == DiscountKind.PERCENTAGE:
         discount = product.price * (coupon.discount_value / 100)
@@ -181,6 +185,7 @@ def calculate_coupon_discount_for_product(coupon, product):
         return discount
 
     return coupon.discount_value
+
 
 def get_best_coupon_for_product(product):
     coupons = get_valid_coupons()
@@ -200,7 +205,139 @@ def get_best_coupon_for_product(product):
 
     return best_coupon, best_discount
 
+
+def get_used_coupons(user):
+    return UserCoupon.query.filter_by(
+        user_id=user.id,
+        is_used=True
+    ).all()
+
+
+def get_public_coupons_for_user(user):
+    now = datetime.now()
+
+    owned_coupon_ids = [
+        uc.coupon_id for uc in UserCoupon.query.filter_by(user_id=user.id).all()
+    ]
+
+    query = Coupon.query.filter(
+        Coupon.active == True,
+        Coupon.status == CouponStatus.ACTIVE,
+        Coupon.show_public == True,
+        Coupon.start_date <= now,
+        Coupon.end_date >= now,
+        Coupon.quantity > Coupon.used_count
+    )
+
+    if owned_coupon_ids:
+        query = query.filter(~Coupon.id.in_(owned_coupon_ids))
+
+    return query.order_by(Coupon.created_date.desc()).all()
+
+
+def get_my_coupons(user):
+    now = datetime.now()
+
+    user_coupons = UserCoupon.query.filter_by(user_id=user.id) \
+        .join(Coupon, UserCoupon.coupon_id == Coupon.id) \
+        .order_by(UserCoupon.id.desc()) \
+        .all()
+
+    return user_coupons
+
+
+def save_coupon_for_user(user, coupon_id):
+    coupon = Coupon.query.get_or_404(coupon_id)
+
+    now = datetime.now()
+
+    if not coupon.active or coupon.status != CouponStatus.ACTIVE:
+        raise ValueError("Mã giảm giá hiện không khả dụng.")
+
+    if not coupon.show_public:
+        raise ValueError("Mã này không hiển thị công khai.")
+
+    if coupon.start_date and coupon.start_date > now:
+        raise ValueError("Mã giảm giá chưa tới thời gian sử dụng.")
+
+    if coupon.end_date and coupon.end_date < now:
+        raise ValueError("Mã giảm giá đã hết hạn.")
+
+    if coupon.quantity is not None and (coupon.used_count or 0) >= (coupon.quantity or 0):
+        raise ValueError("Mã giảm giá đã hết lượt.")
+
+    existed = UserCoupon.query.filter_by(
+        user_id=user.id,
+        coupon_id=coupon.id
+    ).first()
+
+    if existed:
+        raise ValueError("Bạn đã lưu mã này rồi.")
+
+    user_coupon = UserCoupon(
+        user_id=user.id,
+        coupon_id=coupon.id,
+        is_used=False
+    )
+
+    db.session.add(user_coupon)
+    db.session.commit()
+
+    return user_coupon
+
+
+def get_days_remaining(coupon):
+    if not coupon.end_date:
+        return None
+
+    now = datetime.now()
+    delta = coupon.end_date - now
+    return delta.days
+
+
+def get_apply_type_text(coupon):
+    if coupon.apply_type == CouponApplyType.ALL_PRODUCT:
+        return "Áp dụng toàn shop"
+
+    if coupon.apply_type == CouponApplyType.CATEGORY:
+        return "Áp dụng theo ngành hàng"
+
+    if coupon.apply_type == CouponApplyType.PRODUCT:
+        return "Áp dụng theo sản phẩm"
+
+    return "Không xác định"
+
+
 # CART
+def get_or_create_cart(user):
+    cart = Cart.query.filter_by(user_id=user.id).first()
+
+    if not cart:
+        cart = Cart(user_id=user.id)
+        db.session.add(cart)
+        db.session.commit()
+
+    return cart
+
+
+def stats_cart_db(cart):
+    if not cart or not cart.cart_items:
+        return {
+            "total_quantity": 0,
+            "total_amount": 0,
+            "total_items": 0
+        }
+
+    total_quantity = sum(item.quantity for item in cart.cart_items)
+    total_amount = sum(item.quantity * item.price for item in cart.cart_items)
+    total_items = len(cart.cart_items)
+
+    return {
+        "total_quantity": total_quantity,
+        "total_amount": total_amount,
+        "total_items": total_items
+    }
+
 
 def get_cart_items_by_user(user):
     cart = user.carts
@@ -212,11 +349,13 @@ def get_cart_items_by_user(user):
 def get_active_products():
     return Product.query.filter_by(active=True).all()
 
+
 def get_product_by_id(product_id):
     return Product.query.get_or_404(product_id)
+
+
 def get_suggested_products(limit=10):
     return Product.query.filter_by(active=True).limit(limit).all()
-
 
 
 # ========= ADMIN =========
@@ -237,6 +376,7 @@ def to_int_list(values):
         except (TypeError, ValueError):
             continue
     return result
+
 
 def get_coupon_form_data(request_form, coupon=None):
     return {
@@ -322,6 +462,7 @@ def get_coupon_create_dependencies():
         .order_by(Product.stock_quantity.desc(), Product.name.asc()) \
         .all()
     return categories, products
+
 
 # Tạo mã giảm giá
 def create_coupon_from_form(form):
@@ -422,6 +563,7 @@ def create_coupon_from_form(form):
     db.session.commit()
     return coupon
 
+
 # Sửa mã giảm giá
 def update_coupon_from_form(coupon, form_data):
     name = form_data["name"]
@@ -488,6 +630,7 @@ def update_coupon_from_form(coupon, form_data):
 
     db.session.commit()
     return coupon
+
 
 # Xóa mã giảm giá
 def delete_coupon_by_id(coupon_id):

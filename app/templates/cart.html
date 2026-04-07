@@ -7,44 +7,44 @@
 
 
     <div class="cart-header container mb-4">
-    <h2 class="cart-title">Giỏ hàng</h2>
-</div>
+        <h2 class="cart-title">Giỏ hàng</h2>
+    </div>
 
-    {% if cart_items and cart_items|length > 0 %}
-    <!-- GIỎ HÀNG CÓ SẢN PHẨM -->
-    <section class="cart-list-section">
+    <section class="cart-list-section {% if not (cart_items and cart_items|length > 0) %}d-none{% endif %}"
+             id="cart-list-section">
         <div class="cart-table-wrapper">
             <div class="cart-table-header d-none d-md-grid">
-    <div class="cart-head-product">Sản phẩm</div>
-    <div class="cart-head-price text-center">Đơn giá</div>
-    <div class="cart-head-qty text-center">Số lượng</div>
-    <div class="cart-head-total text-center">Số tiền</div>
-    <div class="cart-head-action text-center">Thao tác</div>
-</div>
+                <div class="cart-head-product">Sản phẩm</div>
+                <div class="cart-head-price text-center">Đơn giá</div>
+                <div class="cart-head-qty text-center">Số lượng</div>
+                <div class="cart-head-total text-center">Số tiền</div>
+                <div class="cart-head-action text-center">Thao tác</div>
+            </div>
 
             {% for item in cart_items %}
-            <div class="cart-item-row">
+            <div class="cart-item-row" data-product-id="{{ item.product_id }}">
                 <div class="cart-col-product">
                     <div class="d-flex align-items-center gap-3">
-                        <input type="checkbox" class="form-check-input mt-0">
+                        <input type="checkbox" class="form-check-input mt-0 cart-item-checkbox">
                         <img
-                            src="{{ item.product.image if item.product and item.product.image else 'https://via.placeholder.com/120x120?text=No+Image' }}"
-                            alt="{{ item.product.name }}"
-                            class="cart-product-image"
+                                src="{{ item.product.image if item.product and item.product.image else 'https://via.placeholder.com/120x120?text=No+Image' }}"
+                                alt="{{ item.product.name }}"
+                                class="cart-product-image"
                         >
                         <div>
                             <h6 class="mb-1 fw-semibold">{{ item.product.name }}</h6>
                             <div class="small text-muted">
-                                {{ item.product.product_detail.description if item.product.product_detail and item.product.product_detail.description else 'Chưa có mô tả sản phẩm.' }}
+                                {{ item.product.product_detail.description if item.product.product_detail and
+                                item.product.product_detail.description else 'Chưa có mô tả sản phẩm.' }}
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="cart-col-price text-center">
-                    <span class="text-muted text-decoration-line-through small">
-                        {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
-                    </span>
+                <span class="text-muted text-decoration-line-through small">
+                    {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
+                </span>
                     <div class="cart-price-value">
                         {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
                     </div>
@@ -52,9 +52,9 @@
 
                 <div class="cart-col-qty text-center">
                     <div class="cart-qty-box mx-auto">
-                        <button type="button" class="qty-btn">-</button>
+                        <button type="button" class="qty-btn qty-decrease">-</button>
                         <input type="text" value="{{ item.quantity }}" class="qty-input" readonly>
-                        <button type="button" class="qty-btn">+</button>
+                        <button type="button" class="qty-btn qty-increase">+</button>
                     </div>
                 </div>
 
@@ -69,30 +69,53 @@
             {% endfor %}
         </div>
 
-        <div class="cart-bottom-bar mt-3 p-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="checkAllCart">
-                    <label class="form-check-label" for="checkAllCart">
-                        Chọn tất cả
-                    </label>
+        <div class="cart-bottom-bar mt-3">
+            <div class="cart-bottom-bar-top">
+                <div class="cart-voucher-inline">
+                    <div class="cart-voucher-left">
+                        <div class="cart-voucher-icon-wrap">
+                            <i class="bi bi-ticket-perforated cart-voucher-icon"></i>
+                        </div>
+                        <span class="cart-voucher-label">Mã giảm giá</span>
+                    </div>
+
+                    <a href="#" class="cart-voucher-action">
+                        Chọn hoặc nhập mã
+                    </a>
                 </div>
-                <a href="#" class="text-decoration-none text-dark">Xóa</a>
             </div>
 
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                <div class="text-end">
-                    <div class="small text-muted">Tổng thanh toán</div>
-                    <div class="cart-grand-total">0đ</div>
+            <div class="cart-bottom-bar-main">
+                <div class="cart-bottom-left">
+                    <div class="form-check d-flex align-items-center gap-2 mb-0">
+                        <input class="form-check-input" type="checkbox" id="checkAllCart">
+                        <label class="form-check-label mb-0" for="checkAllCart" id="checkAllCartLabel">
+                            Chọn tất cả ({{ cart_items|length }})
+                        </label>
+                    </div>
+
+                    <a href="#" class="text-decoration-none text-dark" id="deleteSelectedCart">
+                        Xóa
+                    </a>
                 </div>
-                <a href="#" class="btn cart-buy-btn px-4 py-2">Mua hàng</a>
+
+                <div class="cart-bottom-right">
+                    <div class="text-end">
+                        <div class="small text-muted">
+                            Tổng cộng (<span id="cart-count">0</span> sản phẩm)
+                        </div>
+                        <div class="cart-grand-total" id="cartGrandTotal">0đ</div>
+                    </div>
+
+                    <a href="#" class="btn cart-buy-btn">Mua hàng</a>
+                </div>
             </div>
         </div>
     </section>
 
-    {% else %}
-    <!-- GIỎ HÀNG TRỐNG -->
-    <section class="cart-empty-section bg-light rounded-3 text-center py-5 mb-5">
+    <section
+            class="cart-empty-section bg-light rounded-3 text-center py-5 mb-5 {% if cart_items and cart_items|length > 0 %}d-none{% endif %}"
+            id="cart-empty-section">
         <div class="cart-empty-inner">
             <div class="cart-empty-icon-wrap mb-3">
                 <div class="cart-empty-circle">
@@ -107,7 +130,7 @@
             </a>
         </div>
     </section>
-    {% endif %}
+
 
     <!-- Gợi ý sản phẩm -->
     <section class="cart-suggest-section mt-4">
@@ -124,9 +147,9 @@
                 <div class="card suggest-card h-100 border-0 shadow-sm">
                     <div class="position-relative">
                         <img
-                            src="{{ product.image if product.image else 'https://via.placeholder.com/400x400?text=No+Image' }}"
-                            class="card-img-top suggest-image"
-                            alt="{{ product.name }}"
+                                src="{{ product.image if product.image else 'https://via.placeholder.com/400x400?text=No+Image' }}"
+                                class="card-img-top suggest-image"
+                                alt="{{ product.name }}"
                         >
                         <span class="suggest-badge">-10%</span>
                     </div>
@@ -142,5 +165,29 @@
             {% endfor %}
         </div>
     </section>
+</div>
+<!-- DELETE CART ITEM MODAL -->
+<div id="cartDeleteModal" class="cart-delete-modal">
+    <div class="cart-delete-modal__backdrop"></div>
+
+    <div class="cart-delete-modal__dialog">
+        <h3 class="cart-delete-modal__title">
+            Bạn chắc chắn muốn bỏ sản phẩm này?
+        </h3>
+
+        <div class="cart-delete-modal__product" id="cartDeleteModalProductName"></div>
+
+        <div class="cart-delete-modal__actions">
+            <button type="button" class="cart-delete-modal__btn cart-delete-modal__btn--confirm"
+                    id="cartDeleteModalConfirm">
+                Có
+            </button>
+
+            <button type="button" class="cart-delete-modal__btn cart-delete-modal__btn--cancel"
+                    id="cartDeleteModalCancel">
+                Không
+            </button>
+        </div>
+    </div>
 </div>
 {% endblock %}

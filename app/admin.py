@@ -164,7 +164,8 @@ class CouponAdminView(AuthenticatedView):
                 return self.render(
                     self.edit_template,
                     model=coupon,
-                    form_data=form_data
+                    form_data=form_data,
+                    can_edit_start_date=(coupon.start_date and coupon.start_date > datetime.now())
                 )
             except Exception as e:
                 db.session.rollback()
@@ -172,13 +173,15 @@ class CouponAdminView(AuthenticatedView):
                 return self.render(
                     self.edit_template,
                     model=coupon,
-                    form_data=form_data
+                    form_data=form_data,
+                    can_edit_start_date=(coupon.start_date and coupon.start_date > datetime.now())
                 )
 
         return self.render(
             self.edit_template,
             model=coupon,
-            form_data=get_coupon_form_data(request.form, coupon)
+            form_data=get_coupon_form_data(request.form, coupon),
+            can_edit_start_date=(coupon.start_date and coupon.start_date > datetime.now())
         )
 
     @expose("/delete/<int:coupon_id>", methods=["POST"])
@@ -191,6 +194,7 @@ class CouponAdminView(AuthenticatedView):
             flash("Không thể xóa mã giảm giá này!", "danger")
 
         return redirect(url_for(".index_view"))
+
 
 class OrderAdminView(AuthenticatedView):
     column_list = [

@@ -7,7 +7,8 @@ from app.dao import (
     auth_user, get_active_products, register_user,
     get_best_coupon_for_product, get_product_by_id,
     get_cart_items_by_user, get_suggested_products, stats_cart_db, get_or_create_cart, get_public_coupons_for_user,
-    get_my_coupons, save_coupon_for_user, get_used_coupons, get_apply_type_text
+    get_my_coupons, save_coupon_for_user, get_used_coupons, get_apply_type_text, get_coupon_condition,
+    get_remaining_quantity
 )
 from app.models import UserRole
 
@@ -232,7 +233,9 @@ def coupon_page():
         public_coupons=public_coupons,
         my_coupons=my_coupons,
         used_coupons=used_coupons,
-        get_apply_type_text=get_apply_type_text
+        get_apply_type_text=get_apply_type_text,
+        get_coupon_condition=get_coupon_condition,
+        get_remaining_quantity=get_remaining_quantity
     )
 
 

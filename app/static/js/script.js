@@ -631,7 +631,12 @@ if (deleteSelectedCart) {
             return;
         }
 
-        const confirmed = confirm("Bạn có chắc muốn xóa các sản phẩm đã chọn không?");
+        const modalTitle = document.querySelector(".cart-delete-modal__title");
+        if (modalTitle) {
+            modalTitle.textContent = "Bạn chắc chắn muốn bỏ các sản phẩm này?";
+        }
+
+        const confirmed = await openCartDeleteModal(`${selectedRows.length} sản phẩm đã chọn`);
         if (!confirmed) return;
 
         try {
@@ -659,6 +664,10 @@ if (deleteSelectedCart) {
             }
         } catch (err) {
             alert(err.message);
+        } finally {
+            if (modalTitle) {
+                modalTitle.textContent = "Bạn chắc chắn muốn bỏ sản phẩm này?";
+            }
         }
     });
 }
@@ -711,8 +720,19 @@ document.querySelectorAll(".coupon-detail-btn").forEach(btn => {
 
         document.getElementById("cd-name").innerText = name;
         document.getElementById("cd-code").innerText = code;
-        document.getElementById("cd-date").innerText = `${start} → ${end}`;
-        document.getElementById("cd-min").innerText = `Đơn tối thiểu ${Number(min).toLocaleString("vi-VN")}đ`;
+        let dateText = "Không giới hạn";
+
+if (start && end) {
+    dateText = `${start} → ${end}`;
+} else if (!start && end) {
+    dateText = `Đến ${end}`;
+} else if (start && !end) {
+    dateText = `Từ ${start}`;
+}
+
+document.getElementById("cd-date").innerText = dateText;
+        const minValue = Number(min || 0);
+document.getElementById("cd-min").innerText = `Đơn tối thiểu ${minValue.toLocaleString("vi-VN")}đ`;
         document.getElementById("cd-apply").innerText = apply;
         document.getElementById("cd-desc").innerText = desc || "Không có mô tả";
 

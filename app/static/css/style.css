@@ -1129,7 +1129,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(255,255,255,0.6); /* hoặc 0.6–0.85 tùy */
+
     z-index: 0;
 }
 
@@ -1137,11 +1137,7 @@
     position: relative;
     z-index: 1;
 }
-.coupon-ticket-card::before,
-.coupon-ticket-card::after {
-    display: none;
-    content: none;
-}
+
 
 .coupon-ticket-left {
 
@@ -1189,14 +1185,7 @@
 }
 
 
-.coupon-ticket-right {
-    padding: 22px 32px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 10px;
 
-}
 
 @media (max-width: 991.98px) {
     .coupon-ticket-card {
@@ -1277,13 +1266,9 @@
 }
 
 @media (max-width: 767.98px) {
-    .coupon-page-header {
-        padding: 20px;
-    }
 
-    .coupon-page-title {
-        font-size: 1.6rem;
-    }
+
+
 
     .coupon-ticket-left,
     .coupon-ticket-right {
@@ -1501,5 +1486,36 @@
         flex-direction: column;
         align-items: stretch;
     }
+    .coupon-ticket-right .d-flex.gap-2.mt-2 {
+    flex-wrap: wrap;
+}
 }
 
+.coupon-disabled {
+    filter: grayscale(100%);
+    opacity: 0.72;
+    position: relative;
+    pointer-events: none;
+}
+
+.coupon-disabled::after {
+    content: "KHÔNG KHẢ DỤNG";
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+.coupon-remaining {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #212529;
+}
+
+.coupon-remaining.low-stock {
+    color: #dc3545; /* đỏ */
+    font-weight: 700;
+}

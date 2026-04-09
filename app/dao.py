@@ -111,17 +111,13 @@ def register_user(name, username, email, phone, address, password, confirm):
 
 # COUPON
 def get_remaining_quantity(coupon):
-    """
-    Số lượng còn lại = tổng - đã dùng
-    """
-    return max((coupon.quantity or 0) - (coupon.used_count or 0), 0)
+    saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+    return max((coupon.quantity or 0) - saved_count, 0)
 
 
 def get_usage_text(coupon):
-    """
-    Hiển thị dạng: 0/100
-    """
-    return f"{coupon.used_count or 0}/{coupon.quantity or 0}"
+    saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+    return f"{saved_count}/{coupon.quantity or 0}"
 
 
 def get_coupon_condition(coupon):
@@ -145,7 +141,9 @@ def get_coupon_condition(coupon):
     if coupon.start_date and coupon.start_date > now:
         return CouponCondition.UPCOMING
 
-    if coupon.quantity is not None and (coupon.used_count or 0) >= (coupon.quantity or 0):
+    saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+
+    if coupon.quantity is not None and saved_count >= (coupon.quantity or 0):
         return CouponCondition.OUT_OF_STOCK
 
     return CouponCondition.AVAILABLE
@@ -153,13 +151,25 @@ def get_coupon_condition(coupon):
 
 def get_valid_coupons():
     now = datetime.now()
-    return Coupon.query.filter(
+
+    coupons = Coupon.query.filter(
         Coupon.active == True,
         Coupon.status == CouponStatus.ACTIVE,
         Coupon.start_date <= now,
-        Coupon.end_date >= now,
-        Coupon.quantity > Coupon.used_count
+        Coupon.end_date >= now
     ).all()
+
+    valid_coupons = []
+
+    for coupon in coupons:
+        saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+
+        if coupon.quantity is not None and saved_count >= (coupon.quantity or 0):
+            continue
+
+        valid_coupons.append(coupon)
+
+    return valid_coupons
 
 
 def is_coupon_applicable_to_product(coupon, product):
@@ -220,19 +230,28 @@ def get_public_coupons_for_user(user):
         uc.coupon_id for uc in UserCoupon.query.filter_by(user_id=user.id).all()
     ]
 
-    query = Coupon.query.filter(
+    coupons = Coupon.query.filter(
         Coupon.active == True,
         Coupon.status == CouponStatus.ACTIVE,
         Coupon.show_public == True,
         Coupon.start_date <= now,
-        Coupon.end_date >= now,
-        Coupon.quantity > Coupon.used_count
-    )
+        Coupon.end_date >= now
+    ).order_by(Coupon.created_date.desc()).all()
 
-    if owned_coupon_ids:
-        query = query.filter(~Coupon.id.in_(owned_coupon_ids))
+    available_coupons = []
 
-    return query.order_by(Coupon.created_date.desc()).all()
+    for coupon in coupons:
+        saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+
+        if coupon.quantity is not None and saved_count >= (coupon.quantity or 0):
+            continue
+
+        if coupon.id in owned_coupon_ids:
+            continue
+
+        available_coupons.append(coupon)
+
+    return available_coupons
 
 
 def get_my_coupons(user):
@@ -263,7 +282,9 @@ def save_coupon_for_user(user, coupon_id):
     if coupon.end_date and coupon.end_date < now:
         raise ValueError("Mã giảm giá đã hết hạn.")
 
-    if coupon.quantity is not None and (coupon.used_count or 0) >= (coupon.quantity or 0):
+    saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+
+    if coupon.quantity is not None and saved_count >= (coupon.quantity or 0):
         raise ValueError("Mã giảm giá đã hết lượt.")
 
     existed = UserCoupon.query.filter_by(
@@ -387,6 +408,10 @@ def get_coupon_form_data(request_form, coupon=None):
             "discount_kind",
             coupon.discount_kind.value if coupon and coupon.discount_kind else "fixed"
         ),
+        "show_public": request_form.get(
+            "show_public",
+            "1" if coupon and coupon.show_public else ""
+        ),
         "discount_value": request_form.get(
             "discount_value",
             coupon.discount_value if coupon else ""
@@ -404,9 +429,9 @@ def get_coupon_form_data(request_form, coupon=None):
             coupon.quantity if coupon else ""
         ),
         "used_count": coupon.used_count if coupon else 0,
-        "start_date": request_form.get(
-            "start_date",
-            coupon.start_date.strftime("%d/%m/%Y %H:%M") if coupon and coupon.start_date else ""
+        "start_date": (
+            coupon.start_date.strftime("%d/%m/%Y %H:%M")
+            if coupon and coupon.start_date else request_form.get("start_date", "")
         ),
         "end_date": request_form.get(
             "end_date",
@@ -486,7 +511,7 @@ def create_coupon_from_form(form):
     now = datetime.now()
 
     usage_limit_type = form.get("usage_limit_type", "many")
-    show_public = bool(form.get("show_public"))
+    show_public = str(form.get("show_public", "")).strip() in ["1", "true", "True", "on"]
 
     category_ids = to_int_list(form.getlist("category_ids"))
     product_ids = to_int_list(form.getlist("product_ids"))
@@ -500,20 +525,35 @@ def create_coupon_from_form(form):
     if Coupon.query.filter(Coupon.code == code).first():
         raise ValueError("Code mã giảm giá đã tồn tại.")
 
+    if min_order_value < 0:
+        raise ValueError("Giá trị đơn tối thiểu không hợp lệ.")
+
     if discount_value <= 0:
         raise ValueError("Mức giảm phải lớn hơn 0.")
+
+    if discount_kind_raw == "percentage" and max_discount_value is not None and max_discount_value <= 0:
+        raise ValueError("Giảm tối đa phải lớn hơn 0.")
 
     if discount_kind_raw == "percentage" and discount_value > 50:
         raise ValueError("Mã giảm theo % không được vượt quá 50%.")
 
-    if quantity < 0:
+    if quantity <= 0:
         raise ValueError("Số lượt sử dụng không hợp lệ.")
 
-    if start_date and end_date and start_date > end_date:
-        raise ValueError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.")
+    if not start_date:
+        raise ValueError("Vui lòng nhập ngày bắt đầu.")
+
+    if not end_date:
+        raise ValueError("Vui lòng nhập ngày kết thúc.")
 
     if start_date and start_date < now:
         raise ValueError("Thời gian bắt đầu phải lớn hơn hoặc bằng thời điểm hiện tại.")
+
+    if end_date and end_date < now:
+        raise ValueError("Thời gian kết thúc không hợp lệ.")
+
+    if start_date and end_date and start_date > end_date:
+        raise ValueError("Thời gian bắt đầu phải nhỏ hơn hoặc bằng thời gian kết thúc.")
 
     if apply_scope == "selected_category" and not category_ids:
         raise ValueError("Bạn phải chọn ít nhất 1 ngành hàng.")
@@ -578,14 +618,22 @@ def update_coupon_from_form(coupon, form_data):
     discount_value = float(form_data["discount_value"] or 0)
     min_order_value = float(form_data["min_order_value"] or 0)
     quantity = int(form_data["quantity"] or 0)
-
+    show_public = str(form_data.get("show_public", "")).strip() in ["1", "true", "True", "on"]
     max_discount_value_raw = form_data["max_discount_value"]
     max_discount_value = float(max_discount_value_raw) if str(max_discount_value_raw).strip() != "" else None
 
-    start_date = parse_datetime_local(form_data["start_date"])
+    submitted_start_date = parse_datetime_local(form_data["start_date"])
     end_date = parse_datetime_local(form_data["end_date"])
     status_raw = form_data["status"]
     now = datetime.now()
+
+    original_start_date = coupon.start_date
+    can_edit_start_date = original_start_date and original_start_date > now
+
+    if can_edit_start_date:
+        start_date = submitted_start_date
+    else:
+        start_date = original_start_date
 
     if not name:
         raise ValueError("Vui lòng nhập tên mã giảm giá.")
@@ -609,17 +657,38 @@ def update_coupon_from_form(coupon, form_data):
     if discount_kind_raw == "percentage" and max_discount_value is not None and max_discount_value <= 0:
         raise ValueError("Giảm tối đa phải lớn hơn 0.")
 
-    if quantity < 0:
+    if quantity <= 0:
         raise ValueError("Số lượng không hợp lệ.")
 
     if min_order_value < 0:
         raise ValueError("Giá trị đơn tối thiểu không hợp lệ.")
 
-    if start_date and end_date and start_date > end_date:
-        raise ValueError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.")
+    if can_edit_start_date:
+        if not start_date:
+            raise ValueError("Vui lòng nhập ngày bắt đầu.")
+        if start_date < now:
+            raise ValueError("Thời gian bắt đầu phải lớn hơn hoặc bằng thời điểm hiện tại.")
+    else:
+        original_start_date_str = original_start_date.strftime("%d/%m/%Y %H:%M") if original_start_date else ""
+        submitted_start_date_str = (form_data.get("start_date") or "").strip()
 
-    if start_date and start_date < now:
-        raise ValueError("Thời gian bắt đầu phải lớn hơn hoặc bằng thời điểm hiện tại.")
+        if submitted_start_date_str != original_start_date_str:
+            raise ValueError("Mã giảm giá đã tới ngày bắt đầu, không được chỉnh sửa ngày bắt đầu nữa.")
+
+    if not end_date:
+        raise ValueError("Vui lòng nhập ngày kết thúc.")
+
+    if end_date < now:
+        raise ValueError("Thời gian kết thúc không hợp lệ.")
+
+    if start_date and end_date and start_date > end_date:
+        raise ValueError("Thời gian bắt đầu phải nhỏ hơn hoặc bằng thời gian kết thúc.")
+
+    # if start_date and end_date and start_date > end_date:
+    #    raise ValueError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.")
+
+    # if start_date and start_date < now:
+    #    raise ValueError("Thời gian bắt đầu phải lớn hơn hoặc bằng thời điểm hiện tại.")
 
     discount_kind = DiscountKind.PERCENTAGE if discount_kind_raw == "percentage" else DiscountKind.FIXED
     status = CouponStatus.INACTIVE if status_raw == "INACTIVE" else CouponStatus.ACTIVE
@@ -631,6 +700,7 @@ def update_coupon_from_form(coupon, form_data):
     coupon.discount_value = discount_value
     coupon.min_order_value = min_order_value
     coupon.quantity = quantity
+    coupon.show_public = show_public
     coupon.max_discount_value = max_discount_value if discount_kind == DiscountKind.PERCENTAGE else None
     coupon.start_date = start_date
     coupon.end_date = end_date

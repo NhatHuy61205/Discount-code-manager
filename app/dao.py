@@ -622,13 +622,16 @@ def update_coupon_from_form(coupon, form_data):
     max_discount_value_raw = form_data["max_discount_value"]
     max_discount_value = float(max_discount_value_raw) if str(max_discount_value_raw).strip() != "" else None
 
-    submitted_start_date = parse_datetime_local(form_data["start_date"])
-    end_date = parse_datetime_local(form_data["end_date"])
+    start_date_raw = (form_data.get("start_date") or "").strip()
+    end_date_raw = (form_data.get("end_date") or "").strip()
+
+    submitted_start_date = parse_datetime_local(start_date_raw)
+    end_date = parse_datetime_local(end_date_raw)
     status_raw = form_data["status"]
     now = datetime.now()
 
     original_start_date = coupon.start_date
-    can_edit_start_date = original_start_date and original_start_date > now
+    can_edit_start_date = bool(original_start_date and original_start_date > now)
 
     if can_edit_start_date:
         start_date = submitted_start_date
@@ -657,6 +660,10 @@ def update_coupon_from_form(coupon, form_data):
     if discount_kind_raw == "percentage" and max_discount_value is not None and max_discount_value <= 0:
         raise ValueError("Giảm tối đa phải lớn hơn 0.")
 
+    saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+    if quantity < saved_count:
+        raise ValueError("Số lượng không được nhỏ hơn số lượt đã lưu hiện tại.")
+
     if quantity <= 0:
         raise ValueError("Số lượng không hợp lệ.")
 
@@ -664,8 +671,10 @@ def update_coupon_from_form(coupon, form_data):
         raise ValueError("Giá trị đơn tối thiểu không hợp lệ.")
 
     if can_edit_start_date:
-        if not start_date:
+        if not start_date_raw:
             raise ValueError("Vui lòng nhập ngày bắt đầu.")
+        if not start_date:
+            raise ValueError("Ngày bắt đầu không đúng định dạng dd/mm/YYYY HH:MM.")
         if start_date < now:
             raise ValueError("Thời gian bắt đầu phải lớn hơn hoặc bằng thời điểm hiện tại.")
     else:
@@ -675,8 +684,11 @@ def update_coupon_from_form(coupon, form_data):
         if submitted_start_date_str != original_start_date_str:
             raise ValueError("Mã giảm giá đã tới ngày bắt đầu, không được chỉnh sửa ngày bắt đầu nữa.")
 
-    if not end_date:
+    if not end_date_raw:
         raise ValueError("Vui lòng nhập ngày kết thúc.")
+
+    if not end_date:
+        raise ValueError("Ngày kết thúc không đúng định dạng dd/mm/YYYY HH:MM.")
 
     if end_date < now:
         raise ValueError("Thời gian kết thúc không hợp lệ.")
@@ -713,6 +725,23 @@ def update_coupon_from_form(coupon, form_data):
 # Xóa mã giảm giá
 def delete_coupon_by_id(coupon_id):
     coupon = Coupon.query.get_or_404(coupon_id)
+
+    user_coupon_exists = UserCoupon.query.filter_by(coupon_id=coupon.id).first()
+    if user_coupon_exists:
+        raise ValueError("Mã đã được user lưu, không thể xóa")
+
+    from app.models import Order
+    order_exists = Order.query.filter_by(coupon_id=coupon.id).first()
+    if order_exists:
+        raise ValueError("Mã đã được áp dụng trong đơn hàng, không thể xóa")
+
+    cart_exists = Cart.query.filter_by(coupon_id=coupon.id).first()
+    if cart_exists:
+        raise ValueError("Mã đang tồn tại trong giỏ hàng, không thể xóa")
+
+    CouponCategory.query.filter_by(coupon_id=coupon.id).delete()
+    CouponProduct.query.filter_by(coupon_id=coupon.id).delete()
+
     db.session.delete(coupon)
     db.session.commit()
     return coupon

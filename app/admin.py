@@ -189,6 +189,9 @@ class CouponAdminView(AuthenticatedView):
         try:
             delete_coupon_by_id(coupon_id)
             flash("Xóa mã giảm giá thành công!", "success")
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), "danger")
         except Exception:
             db.session.rollback()
             flash("Không thể xóa mã giảm giá này!", "danger")

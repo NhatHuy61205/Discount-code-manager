@@ -1,0 +1,176 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Thanh toán{% endblock %}
+
+{% block content %}
+<div class="checkout-page">
+    <div class="cart-header container mb-4">
+        <h2 class="cart-title">Thanh toán</h2>
+    </div>
+
+    <section class="checkout-address-card">
+        <div class="checkout-address-topline"></div>
+
+        <div class="checkout-address-body">
+            <div class="checkout-address-title">
+                <i class="bi bi-geo-alt-fill"></i>
+                <span>Địa Chỉ Nhận Hàng</span>
+            </div>
+
+            {% if shipping_address %}
+            <div class="checkout-address-row">
+                <div class="checkout-address-main">
+                    <span class="checkout-address-user" id="checkoutUser">
+                        {{ shipping_address.recipient_name }}
+                        {% if shipping_address.phone %}
+                            (+84) {{ shipping_address.phone }}
+                        {% endif %}
+                    </span>
+
+                    <span class="checkout-address-text" id="checkoutAddress">
+                        {{ shipping_address.address_line }}
+                    </span>
+
+                    {% if shipping_address.is_default %}
+                    <span class="checkout-address-default" id="checkoutDefault">Mặc định</span>
+                    {% endif %}
+                </div>
+
+                <a href="#" class="checkout-address-change" id="openAddressModal">Thay Đổi</a>
+            </div>
+            {% else %}
+            <div class="checkout-address-empty">
+                Bạn chưa có địa chỉ nhận hàng.
+                <a href="#" class="checkout-address-change" id="openAddressModalEmpty">Thêm địa chỉ</a>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+<div id="checkoutAddressModal" class="checkout-address-modal">
+    <div class="checkout-address-modal__backdrop"></div>
+
+    <div class="checkout-address-modal__dialog">
+        <div class="checkout-address-modal__header">
+            <h3 class="checkout-address-modal__title">Địa Chỉ Của Tôi</h3>
+            <button type="button" class="checkout-address-modal__close" id="checkoutAddressModalClose">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="checkout-address-modal__body">
+            {% if addresses and addresses|length > 0 %}
+            {% for addr in addresses %}
+            <label
+                    class="checkout-address-option {% if addr.is_default %}is-default{% endif %}"
+                    data-name="{{ addr.recipient_name }}"
+                    data-phone="{{ addr.phone }}"
+                    data-address="{{ addr.address_line }}"
+                    data-default="{{ addr.is_default }}"
+            >
+                <div class="checkout-address-option__left">
+                    <input
+                            type="radio"
+                            name="selected_checkout_address"
+                            class="checkout-address-option__radio"
+                            value="{{ addr.id }}"
+                            {% if shipping_address and shipping_address.id== addr.id %}checked{% endif %}
+                    >
+
+                    <div class="checkout-address-option__content">
+                        <div class="checkout-address-option__top">
+                            <span class="checkout-address-option__name">{{ addr.recipient_name }}</span>
+                            <span class="checkout-address-option__phone">
+                                    {% if addr.phone %}(+84) {{ addr.phone }}{% endif %}
+                                </span>
+                        </div>
+
+                        <div class="checkout-address-option__line">
+                            {{ addr.address_line }}
+                        </div>
+
+                        {% if addr.is_default %}
+                        <span class="checkout-address-option__badge">Mặc định</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <a href="#"
+                   class="checkout-address-option__edit"
+                   data-id="{{ addr.id }}"
+                   data-name="{{ addr.recipient_name }}"
+                   data-phone="{{ addr.phone }}"
+                   data-address="{{ addr.address_line }}"
+                   data-default="{{ 'true' if addr.is_default else 'false' }}">
+                    Cập nhật
+                </a>
+            </label>
+            {% endfor %}
+            {% else %}
+            <div class="checkout-address-empty">
+                Bạn chưa có địa chỉ nào.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="checkout-address-modal__footer">
+            <a href="#" class="checkout-address-modal__add-btn">
+                <i class="bi bi-plus-lg"></i>
+                Thêm Địa Chỉ Mới
+            </a>
+        </div>
+    </div>
+</div>
+
+<div id="checkoutAddressEditModal" class="checkout-address-edit-modal">
+    <div class="checkout-address-edit-modal__backdrop"></div>
+
+    <div class="checkout-address-edit-modal__dialog">
+        <div class="checkout-address-edit-modal__header">
+            <h3 class="checkout-address-edit-modal__title">Cập nhật địa chỉ</h3>
+            <button type="button" class="checkout-address-edit-modal__close" id="checkoutAddressEditModalClose">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="checkout-address-edit-modal__body">
+            <input type="hidden" id="editAddressId">
+
+            <div class="checkout-address-edit-form-group">
+                <label class="checkout-address-edit-label" for="editRecipientName">Họ và tên</label>
+                <input type="text" id="editRecipientName" class="checkout-address-edit-input">
+            </div>
+
+            <div class="checkout-address-edit-form-group">
+                <label class="checkout-address-edit-label" for="editPhone">Số điện thoại</label>
+                <input type="text" id="editPhone" class="checkout-address-edit-input">
+            </div>
+
+            <div class="checkout-address-edit-form-group">
+                <label class="checkout-address-edit-label" for="editAddressLine">Địa chỉ</label>
+                <textarea id="editAddressLine" class="checkout-address-edit-textarea" rows="4"></textarea>
+            </div>
+
+            <div class="checkout-address-edit-default-wrap" id="checkoutAddressEditDefaultWrap">
+                <label class="checkout-address-edit-default-label" id="checkoutAddressEditDefaultLabel">
+                    <input type="checkbox" id="editSetDefault" class="checkout-address-edit-default-checkbox">
+                    <span>Đặt làm địa chỉ mặc định</span>
+                </label>
+            </div>
+            <div class="checkout-address-edit-error d-none" id="checkoutAddressEditError"></div>
+        </div>
+
+        <div class="checkout-address-edit-modal__footer">
+            <button type="button" class="checkout-address-edit-btn checkout-address-edit-btn--secondary"
+                    id="checkoutAddressEditBack">
+                Trở lại
+            </button>
+
+            <button type="button" class="checkout-address-edit-btn checkout-address-edit-btn--primary"
+                    id="checkoutAddressEditSubmit">
+                Hoàn thành
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

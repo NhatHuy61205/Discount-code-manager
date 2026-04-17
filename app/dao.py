@@ -2,10 +2,12 @@ import hashlib
 import re
 from datetime import datetime
 
+from sqlalchemy import text
+
 from app import app, db
 from app import login
 from app.models import User, CouponStatus, CouponCondition, Product, CouponApplyType, DiscountKind, Coupon, Category, \
-    CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon
+    CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon, UserAddress, Address
 
 
 # USER
@@ -107,6 +109,114 @@ def register_user(name, username, email, phone, address, password, confirm):
     db.session.add(user)
     db.session.commit()
     return user
+
+
+def get_default_address_for_user(user):
+    sql = text("""
+        SELECT a.id, a.recipient_name, a.phone, a.address_line
+        FROM address a
+        JOIN user_address ua ON ua.address_id = a.id
+        WHERE ua.user_id = :user_id AND a.active = true
+        ORDER BY ua.is_default DESC, a.id ASC
+        LIMIT 1
+    """)
+
+    row = db.session.execute(sql, {"user_id": user.id}).mappings().first()
+
+    if row:
+        return {
+            "id": row["id"],
+            "recipient_name": row["recipient_name"],
+            "phone": row["phone"],
+            "address_line": row["address_line"],
+            "is_default": True
+        }
+
+    if user.address:
+        return {
+            "id": None,
+            "recipient_name": user.name,
+            "phone": user.phone,
+            "address_line": user.address,
+            "is_default": True
+        }
+
+    return None
+
+
+def get_addresses_by_user(user):
+    sql = text("""
+        SELECT a.id, a.recipient_name, a.phone, a.address_line, ua.is_default
+        FROM address a
+        JOIN user_address ua ON ua.address_id = a.id
+        WHERE ua.user_id = :user_id AND a.active = true
+        ORDER BY ua.is_default DESC, a.id DESC
+    """)
+
+    rows = db.session.execute(sql, {"user_id": user.id}).mappings().all()
+
+    return [
+        {
+            "id": row["id"],
+            "recipient_name": row["recipient_name"],
+            "phone": row["phone"],
+            "address_line": row["address_line"],
+            "is_default": row["is_default"]
+        }
+        for row in rows
+    ]
+
+
+def update_user_address(user, address_id, recipient_name, phone, address_line, set_as_default=False):
+    recipient_name = (recipient_name or "").strip()
+    phone = (phone or "").strip()
+    address_line = (address_line or "").strip()
+
+    if not recipient_name:
+        raise ValueError("Vui lòng nhập họ và tên")
+
+    if not phone:
+        raise ValueError("Vui lòng nhập số điện thoại")
+
+    if not re.fullmatch(r"\d{10}", phone):
+        raise ValueError("Số điện thoại phải đúng 10 chữ số")
+
+    if not address_line:
+        raise ValueError("Vui lòng nhập địa chỉ")
+
+    user_address = UserAddress.query.filter_by(
+        user_id=user.id,
+        address_id=address_id
+    ).first()
+
+    if not user_address:
+        raise ValueError("Địa chỉ không tồn tại hoặc không thuộc về bạn")
+
+    address = Address.query.get(address_id)
+
+    if not address or not address.active:
+        raise ValueError("Địa chỉ không hợp lệ")
+
+    address.recipient_name = recipient_name
+    address.phone = phone
+    address.address_line = address_line
+
+    if set_as_default:
+        UserAddress.query.filter_by(user_id=user.id).update(
+            {"is_default": False},
+            synchronize_session=False
+        )
+        user_address.is_default = True
+
+    db.session.commit()
+
+    return {
+        "id": address.id,
+        "recipient_name": address.recipient_name,
+        "phone": address.phone,
+        "address_line": address.address_line,
+        "is_default": user_address.is_default
+    }
 
 
 # COUPON
@@ -363,6 +473,172 @@ def stats_cart_db(cart):
 def get_cart_items_by_user(user):
     cart = user.carts
     return cart.cart_items if cart else []
+
+
+def get_available_my_coupons_for_cart(user, selected_product_ids):
+    if not selected_product_ids:
+        raise ValueError("Vui lòng chọn sản phẩm trước khi chọn mã giảm giá")
+
+    cart_items = get_cart_items_by_user(user)
+    selected_product_ids = {int(pid) for pid in selected_product_ids}
+
+    selected_items = [
+        item for item in cart_items
+        if item.product_id in selected_product_ids
+    ]
+
+    if not selected_items:
+        raise ValueError("Vui lòng chọn sản phẩm trước khi chọn mã giảm giá")
+
+    now = datetime.now()
+    result = []
+
+    user_coupons = UserCoupon.query.filter_by(user_id=user.id) \
+        .join(Coupon, UserCoupon.coupon_id == Coupon.id) \
+        .order_by(UserCoupon.id.desc()) \
+        .all()
+
+    selected_subtotal = sum(item.price * item.quantity for item in selected_items)
+
+    for uc in user_coupons:
+        coupon = uc.coupon
+        is_usable = True
+        invalid_reason = ""
+
+        applicable_items = [
+            item for item in selected_items
+            if is_coupon_applicable_to_product(coupon, item.product)
+        ]
+        applicable_subtotal = sum(item.price * item.quantity for item in applicable_items)
+
+        if uc.is_used:
+            is_usable = False
+            invalid_reason = "Mã đã được sử dụng"
+        elif not coupon.active or coupon.status != CouponStatus.ACTIVE:
+            is_usable = False
+            invalid_reason = "Mã hiện không khả dụng"
+        elif coupon.start_date and coupon.start_date > now:
+            is_usable = False
+            invalid_reason = "Mã chưa tới thời gian sử dụng"
+        elif coupon.end_date and coupon.end_date < now:
+            is_usable = False
+            invalid_reason = "Mã đã hết hạn"
+        else:
+            saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+
+            if coupon.quantity is not None and saved_count >= (coupon.quantity or 0):
+                is_usable = False
+                invalid_reason = "Mã đã hết lượt"
+            elif not applicable_items:
+                is_usable = False
+                invalid_reason = "Mã không áp dụng cho sản phẩm đã chọn"
+            elif selected_subtotal < (coupon.min_order_value or 0):
+                is_usable = False
+                invalid_reason = "Chưa đạt giá trị đơn tối thiểu"
+
+        discount_amount = 0
+        if is_usable:
+            if coupon.discount_kind == DiscountKind.PERCENTAGE:
+                discount_amount = applicable_subtotal * (coupon.discount_value / 100)
+                if coupon.max_discount_value:
+                    discount_amount = min(discount_amount, coupon.max_discount_value)
+            else:
+                discount_amount = min(coupon.discount_value, applicable_subtotal)
+
+        result.append({
+            "user_coupon_id": uc.id,
+            "coupon_id": coupon.id,
+            "code": coupon.code,
+            "name": coupon.name,
+            "description": coupon.description,
+            "discount_kind": coupon.discount_kind.value,
+            "discount_value": coupon.discount_value,
+            "max_discount_value": coupon.max_discount_value,
+            "min_order_value": coupon.min_order_value or 0,
+            "apply_type": coupon.apply_type.value,
+            "apply_type_text": get_apply_type_text(coupon),
+            "end_date": coupon.end_date.strftime("%d/%m/%Y %H:%M") if coupon.end_date else "",
+            "discount_amount": round(discount_amount, 2),
+            "is_usable": is_usable,
+            "invalid_reason": invalid_reason
+        })
+
+    result.sort(key=lambda x: (
+        not x["is_usable"],
+        -x["discount_amount"]
+    ))
+
+    return result
+
+
+def validate_selected_coupon_for_cart(user, coupon_id, selected_product_ids):
+    if not selected_product_ids:
+        raise ValueError("Vui lòng chọn sản phẩm trước khi áp dụng mã giảm giá")
+
+    cart_items = get_cart_items_by_user(user)
+    selected_product_ids = {int(pid) for pid in selected_product_ids}
+
+    selected_items = [
+        item for item in cart_items
+        if item.product_id in selected_product_ids
+    ]
+
+    if not selected_items:
+        raise ValueError("Vui lòng chọn sản phẩm trước khi áp dụng mã giảm giá")
+
+    user_coupon = UserCoupon.query.filter_by(
+        user_id=user.id,
+        coupon_id=coupon_id
+    ).first()
+
+    if not user_coupon:
+        raise ValueError("Bạn không sở hữu mã giảm giá này")
+
+    coupon = user_coupon.coupon
+    now = datetime.now()
+
+    if user_coupon.is_used:
+        raise ValueError("Mã đã được sử dụng")
+
+    if not coupon.active or coupon.status != CouponStatus.ACTIVE:
+        raise ValueError("Mã hiện không khả dụng")
+
+    if coupon.start_date and coupon.start_date > now:
+        raise ValueError("Mã chưa tới thời gian sử dụng")
+
+    if coupon.end_date and coupon.end_date < now:
+        raise ValueError("Mã đã hết hạn")
+
+    saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
+    if coupon.quantity is not None and saved_count >= (coupon.quantity or 0):
+        raise ValueError("Mã đã hết lượt")
+
+    applicable_items = [
+        item for item in selected_items
+        if is_coupon_applicable_to_product(coupon, item.product)
+    ]
+
+    if not applicable_items:
+        raise ValueError("Mã không áp dụng cho sản phẩm đã chọn")
+
+    selected_subtotal = sum(item.price * item.quantity for item in selected_items)
+    applicable_subtotal = sum(item.price * item.quantity for item in applicable_items)
+
+    if selected_subtotal < (coupon.min_order_value or 0):
+        raise ValueError("Chưa đạt giá trị đơn tối thiểu để áp dụng mã")
+
+    if coupon.discount_kind == DiscountKind.PERCENTAGE:
+        discount_amount = applicable_subtotal * (coupon.discount_value / 100)
+        if coupon.max_discount_value:
+            discount_amount = min(discount_amount, coupon.max_discount_value)
+    else:
+        discount_amount = min(coupon.discount_value, applicable_subtotal)
+
+    return {
+        "coupon_id": coupon.id,
+        "code": coupon.code,
+        "discount_amount": round(discount_amount, 2)
+    }
 
 
 # PRODUCT

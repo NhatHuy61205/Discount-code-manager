@@ -1,9 +1,11 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, Float, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum, Float, ForeignKey, Text, UniqueConstraint, \
+    Table
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from app import app, db, login
 from enum import Enum as RoleEnum
 from flask_login import UserMixin
+
 
 class Base(db.Model):
     __abstract__ = True
@@ -32,13 +34,36 @@ class User(Base, UserMixin):
     orders = relationship('Order', backref="user", lazy=True)
     carts = relationship('Cart', backref='user', uselist=False)
     user_coupons = relationship('UserCoupon', backref='user', lazy=True)
+    user_addresses = relationship('UserAddress', backref='user', lazy=True)
+
+
+class Address(Base):
+    recipient_name = Column(String(150), nullable=False)
+    phone = Column(String(20), nullable=False)
+    address_line = Column(String(255), nullable=False)
+
+    user_addresses = relationship('UserAddress', backref='address', lazy=True)
+
+    def __str__(self):
+        return self.address_line
+
+
+class UserAddress(db.Model):
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey(User.id), nullable=False)
+    address_id = Column(Integer, ForeignKey(Address.id), nullable=False)
+    is_default = Column(Boolean, default=False, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'address_id', name='uq_user_address'),
+    )
+
 
 class Category(Base):
     description = Column(Text)
 
     products = relationship('Product', backref="category", lazy=True)
     coupon_categories = relationship('CouponCategory', backref='category', lazy=True)
-
 
 
 class Product(Base):
@@ -71,8 +96,6 @@ class CartItem(db.Model):
     product = relationship('Product', backref='cart_items')
 
 
-
-
 class ProductDetail(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey(Product.id), unique=True)
@@ -85,29 +108,31 @@ class DiscountKind(RoleEnum):
     PERCENTAGE = "percentage"
     FIXED = "fixed"
 
+
 class CouponApplyType(RoleEnum):
-    ALL_PRODUCT = "all_product"   # Áp dụng toàn bộ sản phẩm
-    CATEGORY = "category"         # Áp dụng theo loại sản phẩm
-    PRODUCT = "product"           # Áp dụng theo sản phẩm được chọn
+    ALL_PRODUCT = "all_product"  # Áp dụng toàn bộ sản phẩm
+    CATEGORY = "category"  # Áp dụng theo loại sản phẩm
+    PRODUCT = "product"  # Áp dụng theo sản phẩm được chọn
 
 
 class CouponTargetType(RoleEnum):
-    ALL = "all"              # Tất cả mọi người
-    LOYAL_1Y = "loyal_1y"    # User có tài khoản trên 1 năm
+    ALL = "all"  # Tất cả mọi người
+    LOYAL_1Y = "loyal_1y"  # User có tài khoản trên 1 năm
 
 
 class CouponStatus(RoleEnum):
-    DRAFT = "draft"          # Bản nháp
-    ACTIVE = "active"        # Đang bật
-    INACTIVE = "inactive"    # Tắt thủ công
+    DRAFT = "draft"  # Bản nháp
+    ACTIVE = "active"  # Đang bật
+    INACTIVE = "inactive"  # Tắt thủ công
 
 
 class CouponCondition(RoleEnum):
-    UPCOMING = "upcoming"        # Chưa tới ngày bắt đầu
-    AVAILABLE = "available"      # Đang dùng được
+    UPCOMING = "upcoming"  # Chưa tới ngày bắt đầu
+    AVAILABLE = "available"  # Đang dùng được
     OUT_OF_STOCK = "out_of_stock"  # Hết lượt
-    EXPIRED = "expired"          # Hết hạn
-    DISABLED = "disabled"        # Bị tắt
+    EXPIRED = "expired"  # Hết hạn
+    DISABLED = "disabled"  # Bị tắt
+
 
 class CouponType(db.Model):
     id = Column(Integer, primary_key=True)
@@ -149,8 +174,6 @@ class Coupon(Base):
     coupon_products = relationship('CouponProduct', backref='coupon', lazy=True)
 
 
-
-
 class CouponCategory(db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True)
     coupon_id = Column(Integer, ForeignKey(Coupon.id), nullable=False)
@@ -160,6 +183,7 @@ class CouponCategory(db.Model):
         UniqueConstraint('coupon_id', 'category_id', name='uq_coupon_category'),
     )
 
+
 class CouponProduct(db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True)
     coupon_id = Column(Integer, ForeignKey(Coupon.id), nullable=False)
@@ -168,6 +192,7 @@ class CouponProduct(db.Model):
     __table_args__ = (
         UniqueConstraint('coupon_id', 'product_id', name='uq_coupon_product'),
     )
+
 
 class UserCoupon(db.Model):
     id = Column(Integer, primary_key=True)
@@ -205,8 +230,7 @@ class OrderItem(db.Model):
     price = Column(Float)
 
 
-
-if __name__=="__main__":
+if __name__ == "__main__":
     with app.app_context():
         db.drop_all()
         db.create_all()

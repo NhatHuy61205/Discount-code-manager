@@ -8,7 +8,8 @@ from app.dao import (
     get_best_coupon_for_product, get_product_by_id,
     get_cart_items_by_user, get_suggested_products, stats_cart_db, get_or_create_cart, get_public_coupons_for_user,
     get_my_coupons, save_coupon_for_user, get_used_coupons, get_apply_type_text, get_coupon_condition,
-    get_remaining_quantity
+    get_remaining_quantity, get_available_my_coupons_for_cart, validate_selected_coupon_for_cart,
+    get_default_address_for_user, get_addresses_by_user, update_user_address
 )
 from app.models import UserRole
 
@@ -113,12 +114,75 @@ def product_detail(product_id):
 def cart():
     cart_items = get_cart_items_by_user(current_user)
     suggested_products = get_suggested_products(10)
+    my_coupons = get_my_coupons(current_user)
 
     return render_template(
         "cart.html",
         cart_items=cart_items,
-        suggested_products=suggested_products
+        suggested_products=suggested_products,
+        my_coupons=my_coupons,
+        get_coupon_condition=get_coupon_condition,
+        get_apply_type_text=get_apply_type_text
     )
+
+
+@app.route("/api/cart/available-coupons", methods=["POST"])
+@login_required
+def get_cart_available_coupons():
+    try:
+        data = request.get_json() or {}
+        selected_product_ids = data.get("selected_product_ids", [])
+
+        coupons = get_available_my_coupons_for_cart(current_user, selected_product_ids)
+
+        return jsonify({
+            "success": True,
+            "message": "Lấy danh sách mã giảm giá thành công",
+            "coupons": coupons
+        })
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "message": str(e),
+            "coupons": []
+        }), 400
+    except Exception:
+        return jsonify({
+            "success": False,
+            "message": "Không thể tải danh sách mã giảm giá",
+            "coupons": []
+        }), 500
+
+
+@app.route("/api/cart/apply-coupon", methods=["POST"])
+@login_required
+def apply_coupon_to_cart():
+    try:
+        data = request.get_json() or {}
+        coupon_id = int(data.get("coupon_id"))
+        selected_product_ids = data.get("selected_product_ids", [])
+
+        result = validate_selected_coupon_for_cart(
+            current_user,
+            coupon_id,
+            selected_product_ids
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Áp dụng mã giảm giá thành công",
+            "coupon": result
+        })
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+    except Exception:
+        return jsonify({
+            "success": False,
+            "message": "Không thể áp dụng mã giảm giá"
+        }), 500
 
 
 @app.route('/api/carts', methods=['POST'])
@@ -251,6 +315,52 @@ def save_coupon(coupon_id):
         flash(str(e), "danger")
 
     return redirect(url_for("coupon_page"))
+
+
+# Thanh Toán
+@app.route("/checkout")
+@login_required
+def checkout():
+    shipping_address = get_default_address_for_user(current_user)
+    addresses = get_addresses_by_user(current_user)
+
+    return render_template(
+        "checkout.html",
+        shipping_address=shipping_address,
+        addresses=addresses
+    )
+
+
+@app.route("/api/checkout/address/<int:address_id>", methods=["PUT"])
+@login_required
+def update_checkout_address(address_id):
+    try:
+        data = request.get_json() or {}
+
+        updated_address = update_user_address(
+            current_user,
+            address_id=address_id,
+            recipient_name=data.get("recipient_name"),
+            phone=data.get("phone"),
+            address_line=data.get("address_line"),
+            set_as_default=bool(data.get("set_as_default"))
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Cập nhật địa chỉ thành công",
+            "address": updated_address
+        })
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+    except Exception:
+        return jsonify({
+            "success": False,
+            "message": "Không thể cập nhật địa chỉ"
+        }), 500
 
 
 if __name__ == "__main__":

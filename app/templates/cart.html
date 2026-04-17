@@ -79,7 +79,7 @@
                         <span class="cart-voucher-label">Mã giảm giá</span>
                     </div>
 
-                    <a href="#" class="cart-voucher-action">
+                    <a href="#" class="cart-voucher-action" id="openCartCouponModal">
                         Chọn hoặc nhập mã
                     </a>
                 </div>
@@ -100,14 +100,53 @@
                 </div>
 
                 <div class="cart-bottom-right">
-                    <div class="text-end">
+                    <div class="text-end cart-summary-wrap">
                         <div class="small text-muted">
                             Tổng cộng (<span id="cart-count">0</span> sản phẩm)
+
+                            <span class="cart-summary-hover d-none" id="cartSummaryHover">
+            <i class="bi bi-question-circle"></i>
+
+            <div class="cart-summary-popup">
+                <div class="cart-summary-popup__title">Chi tiết khuyến mãi</div>
+
+                <div class="cart-summary-popup__row">
+                    <span>Tổng tiền hàng</span>
+                    <strong id="summarySubtotal">0đ</strong>
+                </div>
+
+                <div class="cart-summary-popup__row">
+                    <span>Giảm giá sản phẩm</span>
+                    <strong id="summaryDiscount">0đ</strong>
+                </div>
+
+                <div class="cart-summary-popup__divider"></div>
+
+                <div class="cart-summary-popup__row cart-summary-popup__row--saving">
+                    <span>Tiết kiệm</span>
+                    <strong id="summarySaving">0đ</strong>
+                </div>
+
+                <div class="cart-summary-popup__row cart-summary-popup__row--final">
+                    <span>Tổng số tiền</span>
+                    <strong id="summaryFinal">0đ</strong>
+                </div>
+
+                <div class="cart-summary-popup__note">
+                    Số tiền cuối cùng thanh toán
+                </div>
+            </div>
+        </span>
                         </div>
+
                         <div class="cart-grand-total" id="cartGrandTotal">0đ</div>
+
+                        <div class="cart-discount text-danger small d-none" id="cartDiscount">
+                            Tiết kiệm 0đ
+                        </div>
                     </div>
 
-                    <a href="#" class="btn cart-buy-btn">Mua hàng</a>
+                    <a href="{{ url_for('checkout') }}" class="btn cart-buy-btn">Mua hàng</a>
                 </div>
             </div>
         </div>
@@ -186,6 +225,48 @@
             <button type="button" class="cart-delete-modal__btn cart-delete-modal__btn--cancel"
                     id="cartDeleteModalCancel">
                 Không
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- CART COUPON MODAL -->
+<div id="cartCouponModal" class="cart-coupon-modal">
+    <div class="cart-coupon-modal__backdrop"></div>
+
+    <div class="cart-coupon-modal__dialog">
+        <div class="cart-coupon-modal__header">
+            <h3 class="cart-coupon-modal__title">Chọn mã giảm giá</h3>
+            <button type="button" class="cart-coupon-modal__close" id="cartCouponModalClose">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="cart-coupon-modal__body">
+            <div class="cart-coupon-modal__search">
+                <input
+                        type="text"
+                        id="cartCouponKeyword"
+                        class="form-control"
+                        placeholder="Nhập mã giảm giá của bạn"
+                >
+            </div>
+
+            <div class="cart-coupon-warning d-none" id="cartCouponWarning"></div>
+
+            <div class="cart-coupon-modal__list" id="cartCouponList">
+                <div class="cart-coupon-empty">
+                    Vui lòng chọn sản phẩm trước khi chọn mã giảm giá.
+                </div>
+            </div>
+        </div>
+
+        <div class="cart-coupon-modal__footer">
+            <button type="button" class="cart-coupon-btn cart-coupon-btn--secondary" id="cartCouponModalCancel">
+                Trở lại
+            </button>
+            <button type="button" class="cart-coupon-btn cart-coupon-btn--primary" id="cartCouponModalConfirm">
+                Đồng ý
             </button>
         </div>
     </div>

@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
+    let selectedCoupon = null;
     const btn = document.getElementById("toggleSidebar");
     const sidebar = document.getElementById("sidebar");
     const main = document.querySelector(".admin-main");
@@ -558,6 +559,20 @@ function updateSelectedProductCount() {
 function updateCartSelectionState() {
     const rows = getCartRows();
     const checkboxes = getCartCheckboxes();
+    const currentSelectedProductIds = getSelectedCartProductIds();
+
+if (
+    selectedCoupon &&
+    (!currentSelectedProductIds.length ||
+     JSON.stringify(currentSelectedProductIds.sort()) !== JSON.stringify((selectedCoupon.selected_product_ids || []).sort()))
+) {
+    selectedCoupon = null;
+
+    const actionText = document.querySelector(".cart-voucher-action");
+    if (actionText) {
+        actionText.textContent = "Chọn hoặc nhập mã";
+    }
+}
 
     if (!rows.length) {
     if (checkAllCart) {
@@ -593,8 +608,58 @@ function updateCartSelectionState() {
         }
     });
 
-    if (cartGrandTotal) {
-    cartGrandTotal.textContent = formatMoney(total);
+    let finalTotal = total;
+let discount = 0;
+
+if (selectedCoupon && selectedCoupon.discount_amount) {
+    discount = selectedCoupon.discount_amount;
+    finalTotal = Math.max(0, total - discount);
+}
+const summarySubtotal = document.getElementById("summarySubtotal");
+const summaryDiscount = document.getElementById("summaryDiscount");
+const summarySaving = document.getElementById("summarySaving");
+const summaryFinal = document.getElementById("summaryFinal");
+const cartSummaryHover = document.getElementById("cartSummaryHover");
+
+if (summarySubtotal) {
+    summarySubtotal.textContent = formatMoney(total);
+}
+
+if (summaryDiscount) {
+    summaryDiscount.textContent = discount > 0 ? "-" + formatMoney(discount) : "0đ";
+}
+
+if (summarySaving) {
+    summarySaving.textContent = discount > 0 ? "-" + formatMoney(discount) : "0đ";
+}
+
+if (summaryFinal) {
+    summaryFinal.textContent = formatMoney(finalTotal);
+}
+
+// tổng tiền sau giảm
+if (cartGrandTotal) {
+    cartGrandTotal.textContent = formatMoney(finalTotal);
+}
+
+// hiển thị tiết kiệm
+const cartDiscount = document.getElementById("cartDiscount");
+if (cartDiscount) {
+    if (discount > 0) {
+        cartDiscount.textContent = "Tiết kiệm " + formatMoney(discount);
+        cartDiscount.classList.remove("d-none");
+    } else {
+        cartDiscount.textContent = "Tiết kiệm 0đ";
+        cartDiscount.classList.add("d-none");
+    }
+}
+
+if (cartSummaryHover) {
+    if (discount > 0) {
+        cartSummaryHover.classList.remove("d-none");
+    } else {
+        cartSummaryHover.classList.add("d-none");
+    }
 }
 
 updateCheckAllLabelCount();
@@ -775,4 +840,524 @@ document.addEventListener("keydown", function (e) {
         closeCouponModal();
     }
 });
+
+// Test ÁP Mã
+// ===== CART COUPON MODAL =====
+const cartCouponModal = document.getElementById("cartCouponModal");
+const openCartCouponModalBtn = document.getElementById("openCartCouponModal");
+const cartCouponModalClose = document.getElementById("cartCouponModalClose");
+const cartCouponModalCancel = document.getElementById("cartCouponModalCancel");
+const cartCouponModalConfirm = document.getElementById("cartCouponModalConfirm");
+const cartCouponKeyword = document.getElementById("cartCouponKeyword");
+
+function getSelectedCartProductIds() {
+    return getCartRows()
+        .filter(row => {
+            const checkbox = row.querySelector(".cart-item-checkbox");
+            return checkbox && checkbox.checked;
+        })
+        .map(row => parseInt(row.dataset.productId, 10))
+        .filter(id => !isNaN(id));
+}
+
+function renderCartCouponList(coupons) {
+    const list = document.getElementById("cartCouponList");
+    if (!list) return;
+
+    if (!coupons || !coupons.length) {
+        list.innerHTML = `
+            <div class="cart-coupon-empty">
+                Bạn chưa sở hữu mã giảm giá nào.
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = coupons.map(coupon => {
+        const disabledClass = coupon.is_usable ? "" : " is-disabled";
+        const disabledAttr = coupon.is_usable ? "" : " disabled";
+        const checkedArea = coupon.is_usable
+            ? `<input
+                    type="radio"
+                    name="selected_cart_coupon"
+                    class="cart-coupon-radio"
+                    value="${coupon.coupon_id}"
+                    data-code="${coupon.code}"
+                >`
+            : "";
+
+        const statusText = coupon.is_usable
+            ? `<div class="cart-coupon-item__status text-success">Có thể áp dụng</div>`
+            : `<div class="cart-coupon-item__status text-muted">${coupon.invalid_reason || "Không khả dụng"}</div>`;
+
+        return `
+            <label class="cart-coupon-item${disabledClass}">
+                ${checkedArea}
+
+                <div class="cart-coupon-item__left">
+                    <div class="cart-coupon-item__badge">Đã lưu</div>
+
+                    <div class="cart-coupon-item__value">
+                        ${coupon.discount_kind === "percentage"
+                            ? `Giảm ${parseInt(coupon.discount_value)}%`
+                            : `Giảm ${Number(coupon.discount_value).toLocaleString("vi-VN")}đ`}
+                    </div>
+
+                    ${coupon.max_discount_value
+                        ? `<div class="cart-coupon-item__sub">
+                            Tối đa ${Number(coupon.max_discount_value).toLocaleString("vi-VN")}đ
+                           </div>`
+                        : ""}
+
+                    <div class="cart-coupon-item__min-order">
+                        Đơn tối thiểu ${Number(coupon.min_order_value || 0).toLocaleString("vi-VN")}đ
+                    </div>
+                </div>
+
+                <div class="cart-coupon-item__right">
+                    <div class="cart-coupon-item__name">${coupon.name}</div>
+                    <div class="cart-coupon-item__code">${coupon.code}</div>
+                    <div class="cart-coupon-item__meta">${coupon.apply_type_text}</div>
+                    ${statusText}
+                    <div class="cart-coupon-item__date">HSD: ${coupon.end_date || "Không giới hạn"}</div>
+                </div>
+            </label>
+        `;
+    }).join("");
+}
+
+function showCartCouponWarning(message) {
+    const list = document.getElementById("cartCouponList");
+    if (!list) return;
+
+    list.innerHTML = `
+        <div class="cart-coupon-empty">
+            ${message}
+        </div>
+    `;
+}
+function openCartCouponModal() {
+    if (!cartCouponModal) return;
+    cartCouponModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+}
+
+function closeCartCouponModal() {
+    if (!cartCouponModal) return;
+    cartCouponModal.classList.remove("show");
+    document.body.style.overflow = "";
+}
+
+if (openCartCouponModalBtn) {
+    openCartCouponModalBtn.addEventListener("click", async function (e) {
+        e.preventDefault();
+
+        const selectedProductIds = getSelectedCartProductIds();
+
+        try {
+            const res = await fetch("/api/cart/available-coupons", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    selected_product_ids: selectedProductIds
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showCartCouponWarning(data.message || "Vui lòng chọn sản phẩm trước khi chọn mã giảm giá");
+                openCartCouponModal();
+                return;
+            }
+
+            renderCartCouponList(data.coupons || []);
+            openCartCouponModal();
+        } catch (err) {
+            showCartCouponWarning("Không thể tải mã giảm giá");
+            openCartCouponModal();
+        }
+    });
+}
+
+if (cartCouponModalClose) {
+    cartCouponModalClose.addEventListener("click", closeCartCouponModal);
+}
+
+if (cartCouponModalCancel) {
+    cartCouponModalCancel.addEventListener("click", closeCartCouponModal);
+}
+
+if (cartCouponModal) {
+    cartCouponModal.addEventListener("click", function (e) {
+        if (e.target.classList.contains("cart-coupon-modal__backdrop")) {
+            closeCartCouponModal();
+        }
+    });
+}
+
+document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && cartCouponModal && cartCouponModal.classList.contains("show")) {
+        closeCartCouponModal();
+    }
+});
+
+if (cartCouponKeyword) {
+    cartCouponKeyword.addEventListener("input", function () {
+        const keyword = this.value.trim().toLowerCase();
+        const items = document.querySelectorAll(".cart-coupon-item");
+
+        items.forEach(item => {
+            const code = item.querySelector(".cart-coupon-item__code")?.textContent?.toLowerCase() || "";
+            const name = item.querySelector(".cart-coupon-item__name")?.textContent?.toLowerCase() || "";
+            item.style.display = (code.includes(keyword) || name.includes(keyword)) ? "" : "none";
+        });
+    });
+}
+
+if (cartCouponModalConfirm) {
+    cartCouponModalConfirm.addEventListener("click", async function () {
+        const selected = document.querySelector('input[name="selected_cart_coupon"]:checked');
+        const actionText = document.querySelector(".cart-voucher-action");
+
+        if (!selected) {
+            alert("Vui lòng chọn 1 mã giảm giá khả dụng.");
+            return;
+        }
+
+        const couponId = parseInt(selected.value);
+        const selectedProductIds = getSelectedCartProductIds();
+
+        try {
+            const res = await fetch("/api/cart/apply-coupon", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    coupon_id: couponId,
+                    selected_product_ids: selectedProductIds
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                alert(data.message || "Không thể áp mã");
+                return;
+            }
+
+            // lưu coupon đã chọn
+            selectedCoupon = data.coupon;
+            selectedCoupon.selected_product_ids = [...selectedProductIds];
+
+            if (actionText) {
+                actionText.textContent = selectedCoupon.code;
+            }
+
+            updateCartSelectionState(); // update lại tiền
+
+            closeCartCouponModal();
+        } catch (err) {
+            alert("Không thể áp mã giảm giá");
+        }
+    });
+}
+// ===== CHECKOUT ADDRESS MODAL =====
+const checkoutAddressModal = document.getElementById("checkoutAddressModal");
+const openAddressModal = document.getElementById("openAddressModal");
+const openAddressModalEmpty = document.getElementById("openAddressModalEmpty");
+const checkoutAddressModalClose = document.getElementById("checkoutAddressModalClose");
+
+function showCheckoutAddressModal() {
+    if (!checkoutAddressModal) return;
+    checkoutAddressModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+}
+
+function hideCheckoutAddressModal() {
+    if (!checkoutAddressModal) return;
+    checkoutAddressModal.classList.remove("show");
+    document.body.style.overflow = "";
+}
+
+if (openAddressModal) {
+    openAddressModal.addEventListener("click", function (e) {
+        e.preventDefault();
+        showCheckoutAddressModal();
+    });
+}
+
+if (openAddressModalEmpty) {
+    openAddressModalEmpty.addEventListener("click", function (e) {
+        e.preventDefault();
+        showCheckoutAddressModal();
+    });
+}
+
+if (checkoutAddressModalClose) {
+    checkoutAddressModalClose.addEventListener("click", hideCheckoutAddressModal);
+}
+
+if (checkoutAddressModal) {
+    checkoutAddressModal.addEventListener("click", function (e) {
+        if (e.target.classList.contains("checkout-address-modal__backdrop")) {
+            hideCheckoutAddressModal();
+        }
+    });
+}
+
+document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && checkoutAddressModal && checkoutAddressModal.classList.contains("show")) {
+        hideCheckoutAddressModal();
+    }
+});
+// ===== CLICK ADDRESS -> UPDATE CHECKOUT =====
+document.querySelectorAll(".checkout-address-option__radio").forEach(radio => {
+    radio.addEventListener("change", function () {
+        const label = this.closest(".checkout-address-option");
+
+        const name = label.dataset.name || "";
+        const phone = label.dataset.phone || "";
+        const address = label.dataset.address || "";
+        const isDefault = label.dataset.default === "True" || label.dataset.default === "true";
+
+        // update UI ngoài checkout
+        const userEl = document.getElementById("checkoutUser");
+        const addressEl = document.getElementById("checkoutAddress");
+        const defaultEl = document.getElementById("checkoutDefault");
+
+        if (userEl) {
+            userEl.innerText = `${name} ${phone ? "(+84) " + phone : ""}`;
+        }
+
+        if (addressEl) {
+            addressEl.innerText = address;
+        }
+
+        if (defaultEl) {
+            if (isDefault) {
+                defaultEl.style.display = "inline-flex";
+            } else {
+                defaultEl.style.display = "none";
+            }
+        }
+
+        // đóng modal
+        hideCheckoutAddressModal();
+    });
+});
+// ===== CHECKOUT ADDRESS EDIT MODAL =====
+const checkoutAddressEditModal = document.getElementById("checkoutAddressEditModal");
+const checkoutAddressEditModalClose = document.getElementById("checkoutAddressEditModalClose");
+const checkoutAddressEditBack = document.getElementById("checkoutAddressEditBack");
+const checkoutAddressEditSubmit = document.getElementById("checkoutAddressEditSubmit");
+
+const editAddressId = document.getElementById("editAddressId");
+const editRecipientName = document.getElementById("editRecipientName");
+const editPhone = document.getElementById("editPhone");
+const editAddressLine = document.getElementById("editAddressLine");
+const checkoutAddressEditError = document.getElementById("checkoutAddressEditError");
+const editSetDefault = document.getElementById("editSetDefault");
+const checkoutAddressEditDefaultLabel = document.getElementById("checkoutAddressEditDefaultLabel");
+
+function showCheckoutAddressEditModal() {
+    if (!checkoutAddressEditModal) return;
+    checkoutAddressEditModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+}
+
+function hideCheckoutAddressEditModal() {
+    if (!checkoutAddressEditModal) return;
+    checkoutAddressEditModal.classList.remove("show");
+    document.body.style.overflow = "";
+    if (checkoutAddressEditError) {
+        checkoutAddressEditError.classList.add("d-none");
+        checkoutAddressEditError.textContent = "";
+    }
+}
+
+document.querySelectorAll(".checkout-address-option__edit").forEach(btn => {
+    btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const isDefault = this.dataset.default === "True" || this.dataset.default === "true";
+
+        if (editAddressId) editAddressId.value = this.dataset.id || "";
+        if (editRecipientName) editRecipientName.value = this.dataset.name || "";
+        if (editPhone) editPhone.value = this.dataset.phone || "";
+        if (editAddressLine) editAddressLine.value = this.dataset.address || "";
+
+        if (editSetDefault) {
+            editSetDefault.checked = isDefault;
+            editSetDefault.disabled = isDefault;
+        }
+
+        if (checkoutAddressEditDefaultLabel) {
+            checkoutAddressEditDefaultLabel.classList.toggle("is-disabled", isDefault);
+
+            if (isDefault) {
+                checkoutAddressEditDefaultLabel.setAttribute(
+                    "title",
+                    "Bạn không thể đặt lại địa chỉ mặc định. Hãy đặt địa chỉ khác làm địa chỉ mặc định của bạn nhé."
+                );
+            } else {
+                checkoutAddressEditDefaultLabel.removeAttribute("title");
+            }
+        }
+
+        showCheckoutAddressEditModal();
+    });
+});
+
+if (checkoutAddressEditModalClose) {
+    checkoutAddressEditModalClose.addEventListener("click", hideCheckoutAddressEditModal);
+}
+
+if (checkoutAddressEditBack) {
+    checkoutAddressEditBack.addEventListener("click", hideCheckoutAddressEditModal);
+}
+
+if (checkoutAddressEditModal) {
+    checkoutAddressEditModal.addEventListener("click", function (e) {
+        if (e.target.classList.contains("checkout-address-edit-modal__backdrop")) {
+            hideCheckoutAddressEditModal();
+        }
+    });
+}
+
+document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && checkoutAddressEditModal && checkoutAddressEditModal.classList.contains("show")) {
+        hideCheckoutAddressEditModal();
+    }
+});
+
+if (checkoutAddressEditSubmit) {
+    checkoutAddressEditSubmit.addEventListener("click", async function () {
+        const addressId = editAddressId?.value;
+        const recipientName = editRecipientName?.value?.trim() || "";
+        const phone = editPhone?.value?.trim() || "";
+        const addressLine = editAddressLine?.value?.trim() || "";
+
+        try {
+            const res = await fetch(`/api/checkout/address/${addressId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+    recipient_name: recipientName,
+    phone: phone,
+    address_line: addressLine,
+    set_as_default: editSetDefault ? editSetDefault.checked && !editSetDefault.disabled : false
+})
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || "Không thể cập nhật địa chỉ");
+            }
+
+            const updated = data.address;
+
+            const setAsDefaultNow = updated.is_default;
+
+// reset toàn bộ default trong list nếu vừa đặt mặc định mới
+if (setAsDefaultNow) {
+    document.querySelectorAll(".checkout-address-option").forEach(option => {
+        option.dataset.default = "false";
+
+        const badge = option.querySelector(".checkout-address-option__badge");
+        if (badge) {
+            badge.remove();
+        }
+    });
+
+    document.querySelectorAll(".checkout-address-option__edit").forEach(editBtn => {
+        editBtn.dataset.default = "false";
+    });
+}
+
+// update item tương ứng
+document.querySelectorAll(".checkout-address-option").forEach(option => {
+    const radio = option.querySelector(".checkout-address-option__radio");
+    if (!radio) return;
+
+    if (String(radio.value) === String(updated.id)) {
+        option.dataset.name = updated.recipient_name;
+        option.dataset.phone = updated.phone;
+        option.dataset.address = updated.address_line;
+        option.dataset.default = updated.is_default ? "true" : "false";
+
+        const nameEl = option.querySelector(".checkout-address-option__name");
+        const phoneEl = option.querySelector(".checkout-address-option__phone");
+        const lineEl = option.querySelector(".checkout-address-option__line");
+
+        if (nameEl) nameEl.textContent = updated.recipient_name;
+        if (phoneEl) phoneEl.textContent = updated.phone ? `(+84) ${updated.phone}` : "";
+        if (lineEl) lineEl.textContent = updated.address_line;
+
+        if (setAsDefaultNow) {
+            radio.checked = true;
+
+            let badge = option.querySelector(".checkout-address-option__badge");
+            if (!badge) {
+                badge = document.createElement("span");
+                badge.className = "checkout-address-option__badge";
+                badge.textContent = "Mặc định";
+                option.querySelector(".checkout-address-option__content")?.appendChild(badge);
+            }
+        }
+
+        const editBtn = option.querySelector(".checkout-address-option__edit");
+        if (editBtn) {
+            editBtn.dataset.name = updated.recipient_name;
+            editBtn.dataset.phone = updated.phone;
+            editBtn.dataset.address = updated.address_line;
+            editBtn.dataset.default = updated.is_default ? "true" : "false";
+        }
+    }
+});
+
+// update block ngoài nếu:
+// 1) radio đang chọn sẵn
+// 2) hoặc vừa đặt mặc định mới
+document.querySelectorAll(".checkout-address-option").forEach(option => {
+    const radio = option.querySelector(".checkout-address-option__radio");
+    if (!radio) return;
+
+    if (String(radio.value) === String(updated.id) && (radio.checked || setAsDefaultNow)) {
+        const userEl = document.getElementById("checkoutUser");
+        const addressEl = document.getElementById("checkoutAddress");
+        const defaultEl = document.getElementById("checkoutDefault");
+
+        if (userEl) {
+            userEl.innerText = `${updated.recipient_name} ${updated.phone ? "(+84) " + updated.phone : ""}`;
+        }
+
+        if (addressEl) {
+            addressEl.innerText = updated.address_line;
+        }
+
+        if (defaultEl) {
+            defaultEl.style.display = "inline-flex";
+        }
+    }
+});
+
+            hideCheckoutAddressEditModal();
+        } catch (err) {
+            if (checkoutAddressEditError) {
+                checkoutAddressEditError.textContent = err.message;
+                checkoutAddressEditError.classList.remove("d-none");
+            } else {
+                alert(err.message);
+            }
+        }
+    });
+}
 });

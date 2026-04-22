@@ -1,0 +1,116 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Lịch sử mua hàng{% endblock %}
+
+{% block content %}
+<div class="my-orders-page">
+    <div class="my-orders-header container">
+        <h2 class="my-orders-title">Lịch sử mua hàng</h2>
+    </div>
+
+    {% if orders and orders|length > 0 %}
+    <div class="my-orders-list">
+        {% for order in orders %}
+        <section class="my-order-card">
+            <div class="my-order-card__head">
+                <div class="my-order-card__left">
+                    <span class="my-order-id">Đơn hàng #{{ order.id }}</span>
+                    <span class="my-order-date">
+                                {{ order.created_at.strftime('%d/%m/%Y %H:%M') if order.created_at else '' }}
+                            </span>
+                </div>
+
+                <div class="my-order-card__right">
+                            <span class="my-order-status">
+                                {% if order.status.value == 'placed' %}
+    Đã đặt hàng
+{% elif order.status.value == 'processing' %}
+    Đang xử lý
+{% elif order.status.value == 'shipping' %}
+    Đang giao
+{% elif order.status.value == 'completed' %}
+    Hoàn thành
+{% elif order.status.value == 'cancelled' %}
+    Đã hủy
+{% else %}
+    {{ order.status.value }}
+{% endif %}
+                            </span>
+                </div>
+            </div>
+
+            <div class="my-order-items">
+                {% for item in order.order_items %}
+                <div class="my-order-item">
+                    <div class="my-order-item__product">
+                        <img
+                                src="{{ item.product.image if item.product and item.product.image else 'https://via.placeholder.com/80x80?text=No+Image' }}"
+                                alt="{{ item.product.name if item.product else 'Sản phẩm' }}"
+                                class="my-order-item__img"
+                        >
+
+                        <div class="my-order-item__name-wrap">
+                            <div class="my-order-item__name">
+                                {{ item.product.name if item.product else 'Sản phẩm không tồn tại' }}
+                            </div>
+
+                            {% if item.note %}
+                            <div class="my-order-item__note">
+                                Lời nhắn: {{ item.note }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="my-order-item__price">
+                        {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
+                    </div>
+
+                    <div class="my-order-item__qty">
+                        x{{ item.quantity }}
+                    </div>
+
+                    <div class="my-order-item__total">
+                        {{ "{:,.0f}".format(item.price * item.quantity).replace(",", ".") }}đ
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="my-order-summary">
+                <div class="my-order-summary__box">
+                    <div class="my-order-summary__row">
+                        <span>Tổng tiền hàng</span>
+                        <strong>{{ "{:,.0f}".format(order.total_amount or 0).replace(",", ".") }}đ</strong>
+                    </div>
+
+                    {% if order.discount_amount and order.discount_amount > 0 %}
+                    <div class="my-order-summary__row my-order-summary__row--discount">
+                        <span>Giảm giá</span>
+                        <strong>-{{ "{:,.0f}".format(order.discount_amount).replace(",", ".") }}đ</strong>
+                    </div>
+                    {% endif %}
+
+                    <div class="my-order-summary__row my-order-summary__row--final">
+                        <span>Tổng thanh toán</span>
+                        <strong>{{ "{:,.0f}".format(order.final_amount or 0).replace(",", ".") }}đ</strong>
+                    </div>
+                </div>
+                <a href="#"
+                   class="my-order-rebuy-btn"
+                   data-order-id="{{ order.id }}">
+                    Mua lại
+                </a>
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="my-orders-empty">
+        Bạn chưa có đơn hàng nào.
+        <br>
+        <a href="{{ url_for('index') }}">Mua sắm ngay</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

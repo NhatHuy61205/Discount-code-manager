@@ -1,4 +1,5 @@
 import hashlib
+import math
 import re
 from datetime import datetime
 
@@ -7,7 +8,8 @@ from sqlalchemy import text
 from app import app, db
 from app import login
 from app.models import User, CouponStatus, CouponCondition, Product, CouponApplyType, DiscountKind, Coupon, Category, \
-    CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon, UserAddress, Address
+    CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon, UserAddress, Address, OrderItem, Order, \
+    OrderStatus
 
 
 # USER
@@ -219,6 +221,33 @@ def update_user_address(user, address_id, recipient_name, phone, address_line, s
     }
 
 
+# PAGE
+def paginate_query(query, page=1, page_size=None):
+    page = int(page or 1)
+    if page < 1:
+        page = 1
+
+    page_size = page_size or app.config["PAGE_SIZE"]
+
+    total = query.count()
+    pages = math.ceil(total / page_size) if total > 0 else 1
+
+    if page > pages:
+        page = pages
+
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "items": items,
+        "page": page,
+        "pages": pages,
+        "total": total,
+        "page_size": page_size,
+        "has_next": page < pages,
+        "has_prev": page > 1
+    }
+
+
 # COUPON
 def get_remaining_quantity(coupon):
     saved_count = UserCoupon.query.filter_by(coupon_id=coupon.id).count()
@@ -365,9 +394,10 @@ def get_public_coupons_for_user(user):
 
 
 def get_my_coupons(user):
-    now = datetime.now()
-
-    user_coupons = UserCoupon.query.filter_by(user_id=user.id) \
+    user_coupons = UserCoupon.query.filter_by(
+        user_id=user.id,
+        is_used=False
+    ) \
         .join(Coupon, UserCoupon.coupon_id == Coupon.id) \
         .order_by(UserCoupon.id.desc()) \
         .all()
@@ -471,8 +501,8 @@ def stats_cart_db(cart):
 
 
 def get_cart_items_by_user(user):
-    cart = user.carts
-    return cart.cart_items if cart else []
+    cart = get_or_create_cart(user)
+    return cart.cart_items
 
 
 def get_available_my_coupons_for_cart(user, selected_product_ids):
@@ -643,8 +673,9 @@ def validate_selected_coupon_for_cart(user, coupon_id, selected_product_ids):
 
 # PRODUCT
 
-def get_active_products():
-    return Product.query.filter_by(active=True).all()
+def get_active_products(page=1):
+    query = Product.query.filter_by(active=True).order_by(Product.id.desc())
+    return paginate_query(query, page=page)
 
 
 def get_product_by_id(product_id):
@@ -1021,3 +1052,116 @@ def delete_coupon_by_id(coupon_id):
     db.session.delete(coupon)
     db.session.commit()
     return coupon
+
+
+# check out
+def create_order_from_checkout(user, selected_product_ids, coupon_id=None, notes=None):
+    selected_product_ids = [int(pid) for pid in (selected_product_ids or []) if str(pid).isdigit()]
+    notes = notes or {}
+
+    if not selected_product_ids:
+        raise ValueError("Không có sản phẩm nào để đặt hàng")
+
+    cart = get_or_create_cart(user)
+
+    selected_items = [
+        item for item in cart.cart_items
+        if item.product_id in selected_product_ids
+    ]
+
+    if not selected_items:
+        raise ValueError("Không tìm thấy sản phẩm hợp lệ trong giỏ hàng")
+
+    total_amount = 0
+    discount_amount = 0
+    selected_coupon = None
+
+    # Tính tổng tiền hàng + kiểm tra tồn kho
+    for item in selected_items:
+        if not item.product:
+            raise ValueError("Có sản phẩm không tồn tại")
+
+        if item.quantity <= 0:
+            raise ValueError(f"Số lượng sản phẩm {item.product.name} không hợp lệ")
+
+        if item.product.stock_quantity < item.quantity:
+            raise ValueError(f"Sản phẩm {item.product.name} không đủ tồn kho")
+
+        total_amount += item.price * item.quantity
+
+    # Validate coupon lại lần cuối ở backend
+    if coupon_id:
+        coupon_result = validate_selected_coupon_for_cart(
+            user=user,
+            coupon_id=int(coupon_id),
+            selected_product_ids=selected_product_ids
+        )
+        discount_amount = float(coupon_result.get("discount_amount", 0) or 0)
+        selected_coupon = Coupon.query.get(int(coupon_id))
+
+    final_amount = max(total_amount - discount_amount, 0)
+
+    try:
+        order = Order(
+            user_id=user.id,
+            coupon_id=selected_coupon.id if selected_coupon else None,
+            total_amount=total_amount,
+            discount_amount=discount_amount,
+            final_amount=final_amount,
+            status=OrderStatus.PLACED
+        )
+        db.session.add(order)
+        db.session.flush()  # lấy order.id
+
+        # Lưu chi tiết đơn hàng + trừ tồn kho
+        for item in selected_items:
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=item.product_id,
+                quantity=item.quantity,
+                price=item.price,
+                note=(notes.get(str(item.product_id)) or "").strip() or None
+            )
+            db.session.add(order_item)
+
+            item.product.stock_quantity -= item.quantity
+
+        # Đánh dấu coupon đã dùng
+        if selected_coupon:
+            user_coupon = UserCoupon.query.filter_by(
+                user_id=user.id,
+                coupon_id=selected_coupon.id
+            ).first()
+
+            if not user_coupon:
+                raise ValueError("User không sở hữu mã giảm giá này")
+
+            if user_coupon.is_used:
+                raise ValueError("Mã giảm giá này đã được sử dụng")
+
+            user_coupon.is_used = True
+            user_coupon.used_at = datetime.now()
+            selected_coupon.used_count = (selected_coupon.used_count or 0) + 1
+
+        # Xóa các sản phẩm đã đặt khỏi giỏ hàng
+        for item in selected_items:
+            db.session.delete(item)
+
+        # Xóa coupon đang bám ở cart nếu có
+        cart.coupon_id = None
+
+        db.session.commit()
+        return order
+
+    except Exception:
+        db.session.rollback()
+        raise
+
+
+# lịch sử mua hàng
+def get_orders_by_user(user):
+    orders = Order.query.filter_by(user_id=user.id) \
+        .order_by(Order.created_at.desc()) \
+        .all()
+
+    return orders

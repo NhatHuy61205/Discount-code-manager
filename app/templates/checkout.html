@@ -4,6 +4,14 @@
 
 {% block content %}
 <div class="checkout-page">
+    <div class="checkout-page">
+
+    <input type="hidden" id="checkoutSelectedProductIds"
+           value="{{ selected_product_ids|join(',') }}">
+    <input type="hidden" id="checkoutCouponId"
+       value="{{ selected_coupon.coupon_id if selected_coupon and selected_coupon.coupon_id is defined else '' }}">
+
+
     <div class="cart-header container mb-4">
         <h2 class="cart-title">Thanh toán</h2>
     </div>
@@ -46,7 +54,142 @@
             {% endif %}
         </div>
     </section>
+
+    <section class="checkout-shop-list mt-3">
+        {% set ns = namespace(total_qty=0, total_amount=0) %}
+
+        {% for item in checkout_items %}
+        {% set line_total = item.price * item.quantity %}
+        {% set ns.total_qty = ns.total_qty + item.quantity %}
+        {% set ns.total_amount = ns.total_amount + line_total %}
+
+        <div class="checkout-shop-card mb-3">
+            {% if loop.first %}
+            <div class="checkout-shop-header">
+                <div class="checkout-shop-header-cols">
+                    <span class="col-product">Sản phẩm</span>
+                    <span>Đơn giá</span>
+                    <span>Số lượng</span>
+                    <span>Thành tiền</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="checkout-shop-product">
+                <div class="checkout-shop-product-info">
+                    <img
+                            src="{{ item.product.image if item.product and item.product.image else 'https://via.placeholder.com/60x60' }}"
+                            alt="{{ item.product.name if item.product else 'Sản phẩm' }}"
+                            class="checkout-shop-product-img"
+                    >
+
+                    <div class="checkout-shop-product-text">
+                        <div class="checkout-shop-product-name">
+                            {{ item.product.name if item.product else 'Sản phẩm không tồn tại' }}
+                        </div>
+                        <div class="checkout-shop-product-variant">
+                            {{ item.product.product_detail.description if item.product and item.product.product_detail
+                            and item.product.product_detail.description else 'Chưa có mô tả sản phẩm.' }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="checkout-shop-product-price">
+                    {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
+                </div>
+
+                <div class="checkout-shop-product-qty">
+                    {{ item.quantity }}
+                </div>
+
+                <div class="checkout-shop-product-total">
+                    {{ "{:,.0f}".format(line_total).replace(",", ".") }}đ
+                </div>
+            </div>
+
+            <div class="checkout-shop-actions">
+                <div class="checkout-shop-bottom">
+                    <div class="checkout-shop-note">
+                        <label for="note_{{ item.product_id }}">Lời nhắn:</label>
+                        <input
+                                type="text"
+                                id="note_{{ item.product_id }}"
+                                name="note_{{ item.product_id }}"
+                                placeholder="Lưu ý cho Người bán..."
+                        >
+                    </div>
+                </div>
+            </div>
+            <div class="checkout-shop-total">
+                <span>Tổng số tiền ({{ item.quantity }} sản phẩm):</span>
+                <strong>{{ "{:,.0f}".format(line_total).replace(",", ".") }}đ</strong>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="checkout-shop-card mb-3">
+            <div class="d-flex justify-content-between align-items-center px-4 py-4 border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-ticket-perforated text-danger"></i>
+
+                    <span class="checkout-voucher-label"> Voucher
+        </span>
+                </div>
+
+                {% if selected_coupon %}
+                <div class="d-flex align-items-center gap-2">
+                    <span class="checkout-voucher-code">{{ selected_coupon.code }}</span>
+                    <a href="#" class="checkout-address-change checkout-voucher-link" id="openCheckoutCouponModal">
+                        Thay đổi
+                    </a>
+                </div>
+                {% else %}
+                <a href="#" class="checkout-address-change checkout-voucher-link" id="openCheckoutCouponModal">
+                    Chọn Voucher
+                </a>
+                {% endif %}
+            </div>
+
+
+        </div>
+        {% set shipping_fee = 0 %}
+{% set discount_amount = selected_coupon.discount_amount if selected_coupon and selected_coupon.discount_amount is defined else 0 %}
+{% set final_amount = ns.total_amount + shipping_fee - discount_amount %}
+
+<div class="checkout-payment-summary">
+     <div class="checkout-payment-summary__title">
+        Tổng thanh toán
+    </div>
+    <div class="checkout-payment-summary__inner">
+        <div class="checkout-payment-summary__right">
+            <div class="checkout-payment-summary__row">
+                <span>Tổng tiền hàng</span>
+                <strong>{{ "{:,.0f}".format(ns.total_amount).replace(",", ".") }}đ</strong>
+            </div>
+
+            {% if discount_amount > 0 %}
+            <div class="checkout-payment-summary__row checkout-payment-summary__row--discount">
+                <span>Giảm giá</span>
+                <strong>-{{ "{:,.0f}".format(discount_amount).replace(",", ".") }}đ</strong>
+            </div>
+            {% endif %}
+
+            <div class="checkout-payment-summary__row checkout-payment-summary__row--final">
+                <span>Tổng thanh toán</span>
+                <strong>{{ "{:,.0f}".format(final_amount).replace(",", ".") }}đ</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="checkout-payment-summary__footer">
+        <button type="button" class="checkout-place-order-btn">
+            Đặt hàng
+        </button>
+    </div>
 </div>
+    </section>
+</div>
+
 <div id="checkoutAddressModal" class="checkout-address-modal">
     <div class="checkout-address-modal__backdrop"></div>
 
@@ -173,4 +316,6 @@
         </div>
     </div>
 </div>
+
+{% include 'components/coupon_modal.html' %}
 {% endblock %}

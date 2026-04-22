@@ -206,6 +206,14 @@ class UserCoupon(db.Model):
     )
 
 
+class OrderStatus(RoleEnum):
+    PLACED = "placed"
+    PROCESSING = "processing"
+    SHIPPING = "shipping"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
 class Order(db.Model):
     id = Column(Integer, primary_key=True)
 
@@ -216,7 +224,7 @@ class Order(db.Model):
     discount_amount = Column(Float)
     final_amount = Column(Float)
 
-    status = Column(String(50), default='pending')
+    status = Column(Enum(OrderStatus), default=OrderStatus.PLACED)
     created_at = Column(DateTime, default=datetime.now)
 
     order_items = relationship('OrderItem', backref='order', lazy=True)
@@ -228,6 +236,7 @@ class OrderItem(db.Model):
     product_id = Column(Integer, ForeignKey(Product.id), nullable=False)
     quantity = Column(Integer)
     price = Column(Float)
+    note = Column(Text, nullable=True)
 
 
 if __name__ == "__main__":

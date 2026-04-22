@@ -90,7 +90,7 @@
         <a href="#" class="text-danger text-decoration-none fw-semibold">Xem tất cả</a>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4" id="product-list">
         {% for product in products %}
         <div class="col-sm-6 col-lg-4">
             <div class="card product-card h-100">
@@ -131,5 +131,29 @@
         </div>
         {% endfor %}
     </div>
+    {% if has_next %}
+    <div class="text-center mt-4" id="load-more-wrap">
+        <button
+                type="button"
+                id="load-more-btn"
+                class="btn btn-outline-danger rounded-pill px-5 py-2 fw-semibold"
+                data-next-page="{{ current_page + 1 }}">
+            Xem thêm
+        </button>
+    </div>
+    {% endif %}
 </section>
+<div id="order-success-toast" class="cart-success-toast">
+    <div class="cart-success-toast__backdrop"></div>
+
+    <div class="cart-success-toast__box">
+        <div class="cart-success-toast__icon">
+            <span>✓</span>
+        </div>
+
+        <div class="cart-success-toast__text">
+            Đặt hàng thành công
+        </div>
+    </div>
+</div>
 {% endblock %}

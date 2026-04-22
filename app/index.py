@@ -9,9 +9,10 @@ from app.dao import (
     get_cart_items_by_user, get_suggested_products, stats_cart_db, get_or_create_cart, get_public_coupons_for_user,
     get_my_coupons, save_coupon_for_user, get_used_coupons, get_apply_type_text, get_coupon_condition,
     get_remaining_quantity, get_available_my_coupons_for_cart, validate_selected_coupon_for_cart,
-    get_default_address_for_user, get_addresses_by_user, update_user_address
+    get_default_address_for_user, get_addresses_by_user, update_user_address, create_order_from_checkout,
+    get_orders_by_user
 )
-from app.models import UserRole
+from app.models import UserRole, Order, CartItem
 
 
 @app.route("/")
@@ -19,14 +20,70 @@ def index():
     if current_user.is_authenticated and current_user.role == UserRole.ADMIN:
         return redirect(url_for("admin.index"))
 
+    page = request.args.get("page", 1, type=int)
+
     hero_banners = [f"pics/pics_sale{i}.jpg" for i in range(1, 5)]
-    products = get_active_products()
+    product_data = get_active_products(page=page)
 
     return render_template(
         "index.html",
         hero_banners=hero_banners,
-        products=products
+        products=product_data["items"],
+        current_page=product_data["page"],
+        pages=product_data["pages"],
+        has_next=product_data["has_next"]
     )
+
+
+@app.route("/api/products")
+def load_more_products():
+    page = request.args.get("page", 1, type=int)
+    product_data = get_active_products(page=page)
+
+    return jsonify({
+        "success": True,
+        "products": [
+            {
+                "id": product.id,
+                "name": product.name,
+                "image": product.image or "https://via.placeholder.com/600x400?text=No+Image",
+                "description": (
+                    product.product_detail.description
+                    if product.product_detail and product.product_detail.description
+                    else "Chưa có mô tả cho sản phẩm này."
+                ),
+                "price": "{:,.0f}".format(product.price).replace(",", ".") + "đ",
+                "detail_url": url_for("product_detail", product_id=product.id),
+                "requires_login": not current_user.is_authenticated
+            }
+            for product in product_data["items"]
+        ],
+        "current_page": product_data["page"],
+        "has_next": product_data["has_next"]
+    })
+
+
+@app.context_processor
+def inject_cart_preview_data():
+    cart_count = 0
+    cart_preview_items = []
+    cart_preview_total = 0
+
+    if current_user.is_authenticated and current_user.role != UserRole.ADMIN:
+        cart = get_or_create_cart(current_user)
+        cart_stats = stats_cart_db(cart)
+
+        cart_count = cart_stats.get("total_items", 0)
+        cart_preview_total = cart_stats.get("total_quantity", 0)
+
+        cart_items = get_cart_items_by_user(current_user)
+        cart_preview_items = cart_items[:5]
+
+    return {
+        "cart_count": cart_count,
+        "cart_preview_items": cart_preview_items,
+        "cart_preview_total": cart_preview_total
+    }
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -159,7 +216,12 @@ def get_cart_available_coupons():
 def apply_coupon_to_cart():
     try:
         data = request.get_json() or {}
-        coupon_id = int(data.get("coupon_id"))
+        coupon_id = data.get("coupon_id")
+
+        if not coupon_id:
+            raise ValueError("Thiếu mã giảm giá")
+
+        coupon_id = int(coupon_id)
         selected_product_ids = data.get("selected_product_ids", [])
 
         result = validate_selected_coupon_for_cart(
@@ -285,6 +347,108 @@ def delete_cart_item(product_id):
     return jsonify(stats_cart_db(cart))
 
 
+# Mua lại
+@app.route('/api/orders/<int:order_id>/rebuy', methods=['POST'])
+@login_required
+def rebuy_order(order_id):
+    order = Order.query.filter_by(id=order_id, user_id=current_user.id).first()
+
+    if not order:
+        return jsonify({"message": "Không tìm thấy đơn hàng"}), 404
+
+    if not order.order_items:
+        return jsonify({"message": "Đơn hàng không có sản phẩm"}), 400
+
+    cart = get_or_create_cart(current_user)
+
+    added_any = False
+    warning_messages = []
+
+    for order_item in order.order_items:
+        product = order_item.product
+        product_name = (
+            product.name if product and product.name else f"Sản phẩm #{order_item.product_id}"
+        )
+
+        if not product:
+            warning_messages.append(f"{product_name} không còn tồn tại.")
+            continue
+
+        if not product.active:
+            warning_messages.append(f"{product_name} hiện không còn được kinh doanh.")
+            continue
+
+        if product.stock_quantity <= 0:
+            warning_messages.append(f"{product_name} đã hết hàng.")
+            continue
+
+        qty = int(order_item.quantity or 0)
+        if qty <= 0:
+            warning_messages.append(f"{product_name} có số lượng mua lại không hợp lệ.")
+            continue
+
+        existing = None
+        for ci in cart.cart_items:
+            if ci.product_id == product.id:
+                existing = ci
+                break
+
+        if existing:
+            remain = max(product.stock_quantity - existing.quantity, 0)
+
+            if remain <= 0:
+                warning_messages.append(
+                    f"{product_name} không thể thêm thêm vì giỏ hàng đã đạt tối đa theo tồn kho."
+                )
+                continue
+
+            add_qty = min(qty, remain)
+
+            if add_qty < qty:
+                warning_messages.append(
+                    f"{product_name} chỉ thêm được {add_qty}/{qty} sản phẩm do giới hạn tồn kho."
+                )
+
+            existing.quantity += add_qty
+            added_any = True
+        else:
+            add_qty = min(qty, product.stock_quantity)
+
+            if add_qty <= 0:
+                warning_messages.append(f"{product_name} đã hết hàng.")
+                continue
+
+            if add_qty < qty:
+                warning_messages.append(
+                    f"{product_name} chỉ thêm được {add_qty}/{qty} sản phẩm do giới hạn tồn kho."
+                )
+
+            item = CartItem(
+                cart_id=cart.id,
+                product_id=product.id,
+                quantity=add_qty,
+                price=product.price
+            )
+            db.session.add(item)
+            added_any = True
+
+    if not added_any:
+        return jsonify({
+            "message": "Không thể mua lại đơn hàng.",
+            "warning_messages": warning_messages if warning_messages else [
+                "Tất cả sản phẩm trong đơn hiện không thể thêm vào giỏ hàng."
+            ]
+        }), 400
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Đã thêm sản phẩm có thể mua lại vào giỏ hàng.",
+        "warning_messages": warning_messages,
+        "redirect_url": url_for("cart")
+    }), 200
+
+
 @app.route("/coupon")
 @login_required
 def coupon_page():
@@ -321,13 +485,38 @@ def save_coupon(coupon_id):
 @app.route("/checkout")
 @login_required
 def checkout():
+    selected_product_ids = request.args.getlist("selected_product_ids", type=int)
+    coupon_id = request.args.get("coupon_id", type=int)
+    # coupon_code = request.args.get("coupon_code", default="", type=str)
+    # discount_amount = request.args.get("discount_amount", default=0, type=float)
+
+    if not selected_product_ids:
+        return redirect(url_for("cart"))
+
+    cart_items = get_cart_items_by_user(current_user)
+    selected_items = [item for item in cart_items if item.product_id in selected_product_ids]
+
+    if not selected_items:
+        return redirect(url_for("cart"))
+
     shipping_address = get_default_address_for_user(current_user)
     addresses = get_addresses_by_user(current_user)
+
+    selected_coupon = None
+    if coupon_id:
+        selected_coupon = validate_selected_coupon_for_cart(
+            current_user,
+            coupon_id,
+            selected_product_ids
+        )
 
     return render_template(
         "checkout.html",
         shipping_address=shipping_address,
-        addresses=addresses
+        addresses=addresses,
+        checkout_items=selected_items,
+        selected_product_ids=selected_product_ids,
+        selected_coupon=selected_coupon
     )
 
 
@@ -361,6 +550,53 @@ def update_checkout_address(address_id):
             "success": False,
             "message": "Không thể cập nhật địa chỉ"
         }), 500
+
+
+@app.route("/api/checkout/place-order", methods=["POST"])
+@login_required
+def place_order():
+    try:
+        data = request.get_json() or {}
+
+        selected_product_ids = data.get("selected_product_ids", [])
+        coupon_id = data.get("coupon_id")
+        notes = data.get("notes", {})
+
+        order = create_order_from_checkout(
+            user=current_user,
+            selected_product_ids=selected_product_ids,
+            coupon_id=coupon_id,
+            notes=notes
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Đặt hàng thành công",
+            "order_id": order.id,
+            "redirect_url": url_for("index", order_success=1)
+        })
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+    except Exception:
+        return jsonify({
+            "success": False,
+            "message": "Không thể đặt hàng"
+        }), 500
+
+
+# order
+@app.route("/my-orders")
+@login_required
+def my_orders():
+    orders = get_orders_by_user(current_user)
+
+    return render_template(
+        "my_orders.html",
+        orders=orders
+    )
 
 
 if __name__ == "__main__":

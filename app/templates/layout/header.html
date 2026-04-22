@@ -9,52 +9,114 @@
         <div class="collapse navbar-collapse" id="mainNavbar">
             <form class="d-flex mx-lg-auto my-3 my-lg-0 w-100" style="max-width: 540px;" method="GET" action="#">
                 <input
-                    class="form-control rounded-pill me-2"
-                    type="search"
-                    name="q"
-                    placeholder="Tìm sản phẩm..."
+                        class="form-control rounded-pill me-2"
+                        type="search"
+                        name="q"
+                        placeholder="Tìm sản phẩm..."
                 >
                 <button class="btn btn-danger rounded-pill px-4" type="submit">Tìm</button>
             </form>
 
             <div class="d-flex align-items-center gap-3 ms-lg-4">
-    {% if current_user.is_authenticated %}
-        <span class="fw-medium text-dark">
-            {{ current_user.name }}
+                {% if current_user.is_authenticated %}
+                <div class="header-user-menu">
+                    <button type="button" class="header-user-trigger">
+                        {{ current_user.name }}
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+
+                    <div class="header-user-dropdown">
+                        <a href="{{ url_for('my_orders') }}" class="header-user-dropdown__item">
+                            Đơn mua
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="header-user-dropdown__item">
+                            Đăng xuất
+                        </a>
+                    </div>
+                </div>
+
+                {% if request.endpoint not in ['cart', 'checkout'] %}
+                <div class="header-cart-menu">
+                    <a href="{{ url_for('cart') }}"
+                       class="btn btn-outline-danger rounded-pill px-3 position-relative header-cart-trigger">
+                        <i class="bi bi-cart3"></i>
+
+                        <span id="cart-badge"
+                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {% if not cart_count %}d-none{% endif %}">
+            {{ cart_count or 0 }}
         </span>
+                    </a>
 
-        <a href="{{ url_for('logout') }}" class="text-decoration-none text-dark fw-medium">
-            Đăng xuất
-        </a>
+                    <div class="header-cart-dropdown {% if not cart_count %}is-empty{% endif %}">
+                        <div class="header-cart-dropdown__title">
+                            Sản phẩm mới thêm
+                        </div>
 
-        <a href="{{ url_for('cart') }}" class="btn btn-outline-danger rounded-pill px-3">
-    Giỏ hàng
-</a>
-    {% else %}
-        <a href="{{ url_for('login') }}" class="text-decoration-none text-dark fw-medium">
-            Đăng nhập
-        </a>
+                        {% if cart_preview_items %}
+                        <div class="header-cart-dropdown__list">
+                            {% for item in cart_preview_items %}
+                            <a href="{{ url_for('cart') }}" class="header-cart-dropdown__item">
+                                <img
+                                        src="{{ item.product.image if item.product and item.product.image else 'https://via.placeholder.com/60x60?text=No+Image' }}"
+                                        alt="{{ item.product.name if item.product else 'Sản phẩm' }}"
+                                        class="header-cart-dropdown__img"
+                                >
 
-        <a href="{{ url_for('register') }}" class="text-decoration-none text-dark fw-medium">
-    Đăng ký
-</a>
+                                <div class="header-cart-dropdown__info">
+                                    <div class="header-cart-dropdown__name">
+                                        {{ item.product.name if item.product else 'Sản phẩm không tồn tại' }}
+                                    </div>
+                                </div>
 
-        {% if current_user.is_authenticated %}
-    <a href="/cart" class="position-relative text-decoration-none">
-    <i class="bi bi-cart3 fs-4 text-dark"></i>
+                                <div class="header-cart-dropdown__price">
+                                    {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
 
-    <span id="cart-badge"
-          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-        0
-    </span>
-</a>
-{% else %}
-    <a href="#" class="btn btn-outline-danger rounded-pill px-3 require-login">
-        Giỏ hàng
-    </a>
-{% endif %}
-    {% endif %}
-</div>
+                        <div class="header-cart-dropdown__footer">
+                            <span>{{ cart_preview_total }} sản phẩm trong giỏ</span>
+                            <a href="{{ url_for('cart') }}" class="header-cart-dropdown__view-btn">
+                                Xem Giỏ Hàng
+                            </a>
+                        </div>
+                        {% else %}
+                        <div class="header-cart-dropdown__empty">
+                            Chưa có sản phẩm nào trong giỏ hàng.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% else %}
+                <a href="{{ url_for('login') }}" class="text-decoration-none text-dark fw-medium">
+                    Đăng nhập
+                </a>
+
+                <a href="{{ url_for('register') }}" class="text-decoration-none text-dark fw-medium">
+                    Đăng ký
+                </a>
+
+                <div class="header-cart-menu">
+                    <a href="#"
+                       class="btn btn-outline-danger rounded-pill px-3 require-login position-relative header-cart-trigger">
+                        <i class="bi bi-cart3"></i>
+
+                        <span id="cart-badge"
+                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {% if not cart_count %}d-none{% endif %}">
+            {{ cart_count or 0 }}
+        </span>
+                    </a>
+
+                    <div class="header-cart-dropdown is-empty">
+                        <div class="header-cart-dropdown__empty">
+                            Vui lòng đăng nhập để xem giỏ hàng.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 </nav>

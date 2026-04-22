@@ -299,15 +299,21 @@ def seed_data():
     for u in users:
         total_amount = random.randint(300000, 800000)
         discount_amount = random.randint(10000, 50000)
+
+        if discount_amount >= total_amount:
+            discount_amount = int(total_amount * 0.1)
+
         final_amount = total_amount - discount_amount
+
+        selected_coupon = random.choice(coupons) if coupons else None
 
         o = Order(
             user_id=u.id,
-            coupon_id=random.choice(coupons).id,
+            coupon_id=selected_coupon.id if selected_coupon else None,
             total_amount=total_amount,
             discount_amount=discount_amount,
             final_amount=final_amount,
-            status="completed"
+            status=OrderStatus.COMPLETED
         )
         orders.append(o)
 
@@ -315,15 +321,28 @@ def seed_data():
     db.session.commit()
 
     # ===== 11. ORDER ITEMS =====
+    sample_notes = [
+        None,
+        "Gọi trước khi giao",
+        "Đóng gói cẩn thận",
+        "Kiểm tra hàng trước khi gửi",
+        "Không gọi giờ nghỉ trưa",
+        "Giao giờ hành chính"
+    ]
+
     for o in orders:
-        selected_products = random.sample(products, k=2)
+        selected_products = random.sample(products, k=min(2, len(products)))
+
         for product in selected_products:
             quantity = random.randint(1, 3)
+            note = random.choice(sample_notes)
+
             oi = OrderItem(
                 order_id=o.id,
                 product_id=product.id,
                 quantity=quantity,
-                price=product.price
+                price=product.price,
+                note=note
             )
             db.session.add(oi)
 

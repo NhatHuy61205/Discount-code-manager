@@ -1,0 +1,40 @@
+<div id="sharedCouponModal" class="cart-coupon-modal">
+    <div class="cart-coupon-modal__backdrop"></div>
+
+    <div class="cart-coupon-modal__dialog">
+        <div class="cart-coupon-modal__header">
+            <h3 class="cart-coupon-modal__title">Chọn mã giảm giá</h3>
+            <button type="button" class="cart-coupon-modal__close" id="sharedCouponModalClose">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="cart-coupon-modal__body">
+            <div class="cart-coupon-modal__search">
+                <input
+                        type="text"
+                        id="sharedCouponKeyword"
+                        class="form-control"
+                        placeholder="Nhập mã giảm giá của bạn"
+                >
+            </div>
+
+            <div class="cart-coupon-warning d-none" id="sharedCouponWarning"></div>
+
+            <div class="cart-coupon-modal__list" id="sharedCouponList">
+                <div class="cart-coupon-empty">
+                    Vui lòng chọn sản phẩm trước khi chọn mã giảm giá.
+                </div>
+            </div>
+        </div>
+
+        <div class="cart-coupon-modal__footer">
+            <button type="button" class="cart-coupon-btn cart-coupon-btn--secondary" id="sharedCouponModalCancel">
+                Trở lại
+            </button>
+            <button type="button" class="cart-coupon-btn cart-coupon-btn--primary" id="sharedCouponModalConfirm">
+                Đồng ý
+            </button>
+        </div>
+    </div>
+</div>

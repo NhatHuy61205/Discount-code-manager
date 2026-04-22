@@ -177,20 +177,24 @@ if (form) {
         editDiscountKind.addEventListener("change", toggleEditMaxDiscount);
         toggleEditMaxDiscount();
     }
-    const requireLoginButtons = document.querySelectorAll(".require-login");
+function bindRequireLoginButtons(scope = document) {
+    scope.querySelectorAll(".require-login").forEach(btn => {
+        if (btn.dataset.loginBound === "true") return;
 
-if (requireLoginButtons.length) {
-    requireLoginButtons.forEach(btn => {
+        btn.dataset.loginBound = "true";
         btn.addEventListener("click", function (e) {
             e.preventDefault();
 
-            const modal = new bootstrap.Modal(
-                document.getElementById("loginRequiredModal")
-            );
+            const modalEl = document.getElementById("loginRequiredModal");
+            if (!modalEl) return;
+
+            const modal = new bootstrap.Modal(modalEl);
             modal.show();
         });
     });
 }
+
+bindRequireLoginButtons();
 // ===== PRODUCT DETAIL QUANTITY =====
 const qtyInput = document.getElementById("qty");
 const decreaseBtn = document.getElementById("qty-decrease");
@@ -337,10 +341,64 @@ if (addToCartBtn) {
         });
     });
 }
+if (buyNowBtn) {
+    buyNowBtn.addEventListener("click", async function (e) {
+        e.preventDefault();
+
+        const qty = parseInt(document.getElementById("qty").value || 1);
+        const productId = parseInt(window.location.pathname.split("/").pop());
+
+        this.classList.add("disabled");
+        this.setAttribute("aria-disabled", "true");
+        this.style.pointerEvents = "none";
+        this.style.opacity = "0.65";
+
+        try {
+            const res = await fetch("/api/carts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    id: productId,
+                    quantity: qty
+                })
+            });
+
+            const contentType = res.headers.get("content-type") || "";
+
+            if (!contentType.includes("application/json")) {
+                throw new Error("Vui lòng đăng nhập để tiếp tục mua hàng.");
+            }
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || "Không thể mua ngay");
+            }
+
+            window.location.href = `/cart?buy_now_product_id=${productId}`;
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            this.classList.remove("disabled");
+            this.removeAttribute("aria-disabled");
+            this.style.pointerEvents = "";
+            this.style.opacity = "";
+        }
+    });
+}
 function updateCartBadge(count) {
     const badge = document.getElementById("cart-badge");
-    if (badge) {
-        badge.innerText = count;
+    if (!badge) return;
+
+    const value = parseInt(count, 10) || 0;
+    badge.innerText = value;
+
+    if (value > 0) {
+        badge.classList.remove("d-none");
+    } else {
+        badge.classList.add("d-none");
     }
 }
 function updateCartRowUI(row, quantity) {
@@ -561,10 +619,15 @@ function updateCartSelectionState() {
     const checkboxes = getCartCheckboxes();
     const currentSelectedProductIds = getSelectedCartProductIds();
 
+function isSameArray(a, b) {
+    if (a.length !== b.length) return false;
+    return a.every(v => b.includes(v));
+}
+
 if (
     selectedCoupon &&
     (!currentSelectedProductIds.length ||
-     JSON.stringify(currentSelectedProductIds.sort()) !== JSON.stringify((selectedCoupon.selected_product_ids || []).sort()))
+     !isSameArray(currentSelectedProductIds, selectedCoupon.selected_product_ids || []))
 ) {
     selectedCoupon = null;
 
@@ -681,6 +744,33 @@ document.addEventListener("change", function (e) {
         updateCartSelectionState();
     }
 });
+(function handleBuyNowProductSelection() {
+    const params = new URLSearchParams(window.location.search);
+    const buyNowProductId = parseInt(params.get("buy_now_product_id"), 10);
+
+    if (Number.isNaN(buyNowProductId)) {
+        return;
+    }
+
+    const targetRow = document.querySelector(`.cart-item-row[data-product-id="${buyNowProductId}"]`);
+
+    if (targetRow) {
+        const checkbox = targetRow.querySelector(".cart-item-checkbox");
+
+        if (checkbox) {
+            getCartCheckboxes().forEach(cb => {
+                cb.checked = false;
+            });
+
+            checkbox.checked = true;
+            updateCartSelectionState();
+        }
+    }
+
+    params.delete("buy_now_product_id");
+    const newUrl = `${window.location.pathname}${params.toString() ? "?" + params.toString() : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", newUrl);
+})();
 
 if (deleteSelectedCart) {
     deleteSelectedCart.addEventListener("click", async function (e) {
@@ -840,15 +930,10 @@ document.addEventListener("keydown", function (e) {
         closeCouponModal();
     }
 });
-
-// Test ÁP Mã
-// ===== CART COUPON MODAL =====
-const cartCouponModal = document.getElementById("cartCouponModal");
-const openCartCouponModalBtn = document.getElementById("openCartCouponModal");
-const cartCouponModalClose = document.getElementById("cartCouponModalClose");
-const cartCouponModalCancel = document.getElementById("cartCouponModalCancel");
-const cartCouponModalConfirm = document.getElementById("cartCouponModalConfirm");
-const cartCouponKeyword = document.getElementById("cartCouponKeyword");
+// ===== CART BUY BUTTON + WARNING MODAL =====
+const cartBuyBtn = document.getElementById("cartBuyBtn");
+const cartCheckoutWarningModal = document.getElementById("cartCheckoutWarningModal");
+const cartCheckoutWarningModalOk = document.getElementById("cartCheckoutWarningModalOk");
 
 function getSelectedCartProductIds() {
     return getCartRows()
@@ -860,12 +945,121 @@ function getSelectedCartProductIds() {
         .filter(id => !isNaN(id));
 }
 
-function renderCartCouponList(coupons) {
-    const list = document.getElementById("cartCouponList");
-    if (!list) return;
+function openCartCheckoutWarningModal() {
+    if (!cartCheckoutWarningModal) {
+        alert("Bạn vẫn chưa chọn sản phẩm nào để mua.");
+        return;
+    }
+
+    cartCheckoutWarningModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+}
+
+function closeCartCheckoutWarningModal() {
+    if (!cartCheckoutWarningModal) return;
+
+    cartCheckoutWarningModal.classList.remove("show");
+    document.body.style.overflow = "";
+}
+
+if (cartCheckoutWarningModalOk) {
+    cartCheckoutWarningModalOk.addEventListener("click", closeCartCheckoutWarningModal);
+}
+
+if (cartCheckoutWarningModal) {
+    cartCheckoutWarningModal.addEventListener("click", function (e) {
+        if (e.target.classList.contains("cart-delete-modal__backdrop")) {
+            closeCartCheckoutWarningModal();
+        }
+    });
+}
+
+document.addEventListener("keydown", function (e) {
+    if (
+        e.key === "Escape" &&
+        cartCheckoutWarningModal &&
+        cartCheckoutWarningModal.classList.contains("show")
+    ) {
+        closeCartCheckoutWarningModal();
+    }
+});
+
+if (cartBuyBtn) {
+    cartBuyBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        const selectedProductIds = getSelectedCartProductIds();
+
+        if (!selectedProductIds.length) {
+            openCartCheckoutWarningModal();
+            return;
+        }
+
+        const query = new URLSearchParams();
+        selectedProductIds.forEach(id => query.append("selected_product_ids", id));
+
+        if (selectedCoupon && selectedCoupon.coupon_id) {
+            query.append("coupon_id", selectedCoupon.coupon_id);
+            query.append("coupon_code", selectedCoupon.code || "");
+            query.append("discount_amount", selectedCoupon.discount_amount || 0);
+        }
+
+        window.location.href = `/checkout?${query.toString()}`;
+    });
+}
+// Test ÁP Mã
+// ===== SHARED COUPON MODAL =====
+const sharedCouponModal = document.getElementById("sharedCouponModal");
+const sharedCouponModalClose = document.getElementById("sharedCouponModalClose");
+const sharedCouponModalCancel = document.getElementById("sharedCouponModalCancel");
+const sharedCouponModalConfirm = document.getElementById("sharedCouponModalConfirm");
+const sharedCouponKeyword = document.getElementById("sharedCouponKeyword");
+const sharedCouponList = document.getElementById("sharedCouponList");
+
+const openCartCouponModalBtn = document.getElementById("openCartCouponModal");
+const openCheckoutCouponModalBtn = document.getElementById("openCheckoutCouponModal");
+
+let couponModalSource = null; // "cart" | "checkout"
+
+function openSharedCouponModal() {
+    if (!sharedCouponModal) return;
+    sharedCouponModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+}
+
+function closeSharedCouponModal() {
+    if (!sharedCouponModal) return;
+    sharedCouponModal.classList.remove("show");
+    document.body.style.overflow = "";
+}
+
+function showSharedCouponWarning(message) {
+    if (!sharedCouponList) return;
+    sharedCouponList.innerHTML = `
+        <div class="cart-coupon-empty">${message}</div>
+    `;
+}
+
+function getCheckoutSelectedProductIds() {
+    const raw = document.getElementById("checkoutSelectedProductIds")?.value || "";
+    return raw
+        .split(",")
+        .map(v => parseInt(v.trim(), 10))
+        .filter(v => !isNaN(v));
+}
+
+function getCurrentSelectedProductIds() {
+    if (couponModalSource === "checkout") {
+        return getCheckoutSelectedProductIds();
+    }
+    return getSelectedCartProductIds();
+}
+
+function renderSharedCouponList(coupons) {
+    if (!sharedCouponList) return;
 
     if (!coupons || !coupons.length) {
-        list.innerHTML = `
+        sharedCouponList.innerHTML = `
             <div class="cart-coupon-empty">
                 Bạn chưa sở hữu mã giảm giá nào.
             </div>
@@ -873,17 +1067,16 @@ function renderCartCouponList(coupons) {
         return;
     }
 
-    list.innerHTML = coupons.map(coupon => {
+    sharedCouponList.innerHTML = coupons.map(coupon => {
         const disabledClass = coupon.is_usable ? "" : " is-disabled";
-        const disabledAttr = coupon.is_usable ? "" : " disabled";
         const checkedArea = coupon.is_usable
             ? `<input
                     type="radio"
-                    name="selected_cart_coupon"
+                    name="selected_shared_coupon"
                     class="cart-coupon-radio"
                     value="${coupon.coupon_id}"
                     data-code="${coupon.code}"
-                >`
+               >`
             : "";
 
         const statusText = coupon.is_usable
@@ -926,88 +1119,71 @@ function renderCartCouponList(coupons) {
     }).join("");
 }
 
-function showCartCouponWarning(message) {
-    const list = document.getElementById("cartCouponList");
-    if (!list) return;
+async function handleOpenSharedCouponModal(e, source) {
+    e.preventDefault();
+    couponModalSource = source;
 
-    list.innerHTML = `
-        <div class="cart-coupon-empty">
-            ${message}
-        </div>
-    `;
-}
-function openCartCouponModal() {
-    if (!cartCouponModal) return;
-    cartCouponModal.classList.add("show");
-    document.body.style.overflow = "hidden";
-}
+    const selectedProductIds = getCurrentSelectedProductIds();
 
-function closeCartCouponModal() {
-    if (!cartCouponModal) return;
-    cartCouponModal.classList.remove("show");
-    document.body.style.overflow = "";
+    try {
+        const res = await fetch("/api/cart/available-coupons", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                selected_product_ids: selectedProductIds
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            showSharedCouponWarning(data.message || "Vui lòng chọn sản phẩm trước khi chọn mã giảm giá");
+            openSharedCouponModal();
+            return;
+        }
+
+        renderSharedCouponList(data.coupons || []);
+        openSharedCouponModal();
+    } catch (err) {
+        showSharedCouponWarning("Không thể tải mã giảm giá");
+        openSharedCouponModal();
+    }
 }
 
 if (openCartCouponModalBtn) {
-    openCartCouponModalBtn.addEventListener("click", async function (e) {
-        e.preventDefault();
-
-        const selectedProductIds = getSelectedCartProductIds();
-
-        try {
-            const res = await fetch("/api/cart/available-coupons", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    selected_product_ids: selectedProductIds
-                })
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                showCartCouponWarning(data.message || "Vui lòng chọn sản phẩm trước khi chọn mã giảm giá");
-                openCartCouponModal();
-                return;
-            }
-
-            renderCartCouponList(data.coupons || []);
-            openCartCouponModal();
-        } catch (err) {
-            showCartCouponWarning("Không thể tải mã giảm giá");
-            openCartCouponModal();
-        }
-    });
+    openCartCouponModalBtn.addEventListener("click", (e) => handleOpenSharedCouponModal(e, "cart"));
 }
 
-if (cartCouponModalClose) {
-    cartCouponModalClose.addEventListener("click", closeCartCouponModal);
+if (openCheckoutCouponModalBtn) {
+    openCheckoutCouponModalBtn.addEventListener("click", (e) => handleOpenSharedCouponModal(e, "checkout"));
 }
 
-if (cartCouponModalCancel) {
-    cartCouponModalCancel.addEventListener("click", closeCartCouponModal);
+if (sharedCouponModalClose) {
+    sharedCouponModalClose.addEventListener("click", closeSharedCouponModal);
 }
 
-if (cartCouponModal) {
-    cartCouponModal.addEventListener("click", function (e) {
+if (sharedCouponModalCancel) {
+    sharedCouponModalCancel.addEventListener("click", closeSharedCouponModal);
+}
+
+if (sharedCouponModal) {
+    sharedCouponModal.addEventListener("click", function (e) {
         if (e.target.classList.contains("cart-coupon-modal__backdrop")) {
-            closeCartCouponModal();
+            closeSharedCouponModal();
         }
     });
 }
 
 document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && cartCouponModal && cartCouponModal.classList.contains("show")) {
-        closeCartCouponModal();
+    if (e.key === "Escape" && sharedCouponModal && sharedCouponModal.classList.contains("show")) {
+        closeSharedCouponModal();
     }
 });
 
-if (cartCouponKeyword) {
-    cartCouponKeyword.addEventListener("input", function () {
+if (sharedCouponKeyword) {
+    sharedCouponKeyword.addEventListener("input", function () {
         const keyword = this.value.trim().toLowerCase();
-        const items = document.querySelectorAll(".cart-coupon-item");
+        const items = sharedCouponModal.querySelectorAll(".cart-coupon-item");
 
         items.forEach(item => {
             const code = item.querySelector(".cart-coupon-item__code")?.textContent?.toLowerCase() || "";
@@ -1017,25 +1193,22 @@ if (cartCouponKeyword) {
     });
 }
 
-if (cartCouponModalConfirm) {
-    cartCouponModalConfirm.addEventListener("click", async function () {
-        const selected = document.querySelector('input[name="selected_cart_coupon"]:checked');
-        const actionText = document.querySelector(".cart-voucher-action");
+if (sharedCouponModalConfirm) {
+    sharedCouponModalConfirm.addEventListener("click", async function () {
+        const selected = document.querySelector('input[name="selected_shared_coupon"]:checked');
 
         if (!selected) {
             alert("Vui lòng chọn 1 mã giảm giá khả dụng.");
             return;
         }
 
-        const couponId = parseInt(selected.value);
-        const selectedProductIds = getSelectedCartProductIds();
+        const couponId = parseInt(selected.value, 10);
+        const selectedProductIds = getCurrentSelectedProductIds();
 
         try {
             const res = await fetch("/api/cart/apply-coupon", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     coupon_id: couponId,
                     selected_product_ids: selectedProductIds
@@ -1049,20 +1222,39 @@ if (cartCouponModalConfirm) {
                 return;
             }
 
-            // lưu coupon đã chọn
             selectedCoupon = data.coupon;
             selectedCoupon.selected_product_ids = [...selectedProductIds];
 
-            if (actionText) {
-                actionText.textContent = selectedCoupon.code;
+            if (couponModalSource === "cart") {
+                const actionText = document.querySelector(".cart-voucher-action");
+                if (actionText) {
+                    actionText.textContent = selectedCoupon.code;
+                }
+                updateCartSelectionState();
             }
 
-            updateCartSelectionState(); // update lại tiền
+            if (couponModalSource === "checkout") {
+    const params = new URLSearchParams(window.location.search);
 
-            closeCartCouponModal();
+    const productIds = getCheckoutSelectedProductIds();
+    params.delete("selected_product_ids");
+    productIds.forEach(id => params.append("selected_product_ids", id));
+
+    params.set("coupon_id", selectedCoupon.coupon_id);
+    params.set("coupon_code", selectedCoupon.code);
+
+    // 🔥 THÊM DÒNG NÀY
+    params.set("discount_amount", selectedCoupon.discount_amount || 0);
+
+    window.location.href = "/checkout?" + params.toString();
+}
+
+            closeSharedCouponModal();
         } catch (err) {
             alert("Không thể áp mã giảm giá");
-        }
+    } finally {
+        this.disabled = false;
+    }
     });
 }
 // ===== CHECKOUT ADDRESS MODAL =====
@@ -1357,6 +1549,247 @@ document.querySelectorAll(".checkout-address-option").forEach(option => {
             } else {
                 alert(err.message);
             }
+        }
+    });
+}
+// ===== CHECKOUT PLACE ORDER =====
+const checkoutPlaceOrderBtn = document.querySelector(".checkout-place-order-btn");
+
+function getCheckoutCouponId() {
+    const value = document.getElementById("checkoutCouponId")?.value || "";
+    const couponId = parseInt(value, 10);
+    return Number.isNaN(couponId) ? null : couponId;
+}
+
+function getCheckoutNotes() {
+    const notes = {};
+
+    document.querySelectorAll('input[id^="note_"]').forEach(input => {
+        const productId = input.id.replace("note_", "").trim();
+        if (productId) {
+            notes[productId] = input.value.trim();
+        }
+    });
+
+    return notes;
+}
+
+if (checkoutPlaceOrderBtn) {
+    checkoutPlaceOrderBtn.addEventListener("click", async function () {
+        const selectedProductIds = getCheckoutSelectedProductIds();
+        const couponId = getCheckoutCouponId();
+        const notes = getCheckoutNotes();
+
+        if (!selectedProductIds.length) {
+            alert("Không có sản phẩm nào để đặt hàng.");
+            return;
+        }
+
+        this.disabled = true;
+
+        try {
+            const res = await fetch("/api/checkout/place-order", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    selected_product_ids: selectedProductIds,
+                    coupon_id: couponId,
+                    notes: notes
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || "Không thể đặt hàng");
+            }
+
+            window.location.href = data.redirect_url || "/?order_success=1";
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            this.disabled = false;
+        }
+    });
+}
+function showOrderSuccessToast() {
+    const toast = document.getElementById("order-success-toast");
+    if (!toast) return;
+
+    toast.classList.add("show");
+
+    clearTimeout(window.orderSuccessToastTimer);
+    window.orderSuccessToastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+    }, 1600);
+}
+
+(function handleOrderSuccessFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const isSuccess = params.get("order_success");
+
+    if (isSuccess === "1") {
+        showOrderSuccessToast();
+
+        params.delete("order_success");
+        const newUrl = `${window.location.pathname}${params.toString() ? "?" + params.toString() : ""}${window.location.hash}`;
+        window.history.replaceState({}, "", newUrl);
+    }
+})();
+// ===== REBUY ORDER =====
+document.querySelectorAll(".my-order-rebuy-btn").forEach(btn => {
+    btn.addEventListener("click", async function (e) {
+        e.preventDefault();
+
+        const orderId = this.dataset.orderId;
+        if (!orderId) return;
+
+        this.classList.add("disabled");
+        this.style.pointerEvents = "none";
+        this.style.opacity = "0.65";
+
+        try {
+            const res = await fetch(`/api/orders/${orderId}/rebuy`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                const warnings = Array.isArray(data.warning_messages)
+                    ? data.warning_messages.filter(Boolean)
+                    : [];
+
+                const errorMessage = data.message || "Không thể mua lại đơn hàng";
+
+                if (warnings.length) {
+                    throw new Error(errorMessage + "\n- " + warnings.join("\n- "));
+                }
+
+                throw new Error(errorMessage);
+            }
+
+            const warnings = Array.isArray(data.warning_messages)
+                ? data.warning_messages.filter(Boolean)
+                : [];
+
+            if (warnings.length) {
+                alert(
+                    (data.message || "Đã thêm sản phẩm vào giỏ hàng.") +
+                    "\n\nLưu ý:\n- " + warnings.join("\n- ")
+                );
+            }
+
+            window.location.href = data.redirect_url || "/cart";
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            this.classList.remove("disabled");
+            this.style.pointerEvents = "";
+            this.style.opacity = "";
+        }
+    });
+});
+// ===== INDEX LOAD MORE PRODUCTS =====
+const loadMoreBtn = document.getElementById("load-more-btn");
+const productList = document.getElementById("product-list");
+const loadMoreWrap = document.getElementById("load-more-wrap");
+
+function bindRequireLoginButtons(scope = document) {
+    scope.querySelectorAll(".require-login").forEach(btn => {
+        if (btn.dataset.loginBound === "true") return;
+
+        btn.dataset.loginBound = "true";
+        btn.addEventListener("click", function (e) {
+            e.preventDefault();
+
+            const modalEl = document.getElementById("loginRequiredModal");
+            if (!modalEl) return;
+
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        });
+    });
+}
+
+function createProductCard(product) {
+    const detailButton = product.requires_login
+        ? `<a href="#" class="btn btn-outline-danger rounded-pill require-login">Xem chi tiết</a>`
+        : `<a href="${product.detail_url}" class="btn btn-outline-danger rounded-pill">Xem chi tiết</a>`;
+
+    return `
+        <div class="col-sm-6 col-lg-4">
+            <div class="card product-card h-100">
+                <img
+                    src="${product.image}"
+                    class="product-image card-img-top"
+                    alt="${product.name}"
+                >
+
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title fw-bold">${product.name}</h5>
+
+                    <p class="card-text text-muted small">
+                        ${product.description}
+                    </p>
+
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="price-new">${product.price}</span>
+                    </div>
+
+                    <div class="d-grid mt-auto">
+                        ${detailButton}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+if (loadMoreBtn && productList && loadMoreWrap) {
+    let isLoadingMore = false;
+
+    loadMoreBtn.addEventListener("click", async function () {
+        if (isLoadingMore) return;
+
+        const nextPage = parseInt(this.dataset.nextPage || "1", 10);
+        if (!nextPage) return;
+
+        isLoadingMore = true;
+        this.disabled = true;
+        this.textContent = "Đang tải...";
+
+        try {
+            const res = await fetch(`/api/products?page=${nextPage}`);
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                throw new Error("Không thể tải thêm sản phẩm");
+            }
+
+            const html = (data.products || []).map(createProductCard).join("");
+            productList.insertAdjacentHTML("beforeend", html);
+
+            bindRequireLoginButtons(productList);
+
+            if (data.has_next) {
+                this.dataset.nextPage = data.current_page + 1;
+                this.disabled = false;
+                this.textContent = "Xem thêm";
+            } else {
+                loadMoreWrap.remove();
+            }
+        } catch (err) {
+            this.disabled = false;
+            this.textContent = "Xem thêm";
+            alert(err.message || "Có lỗi xảy ra");
+        } finally {
+            isLoadingMore = false;
         }
     });
 }

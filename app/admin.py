@@ -16,7 +16,8 @@ from app.models import (
     DiscountKind, CouponApplyType, CouponTargetType, CouponStatus, CouponCondition, CouponProduct
 )
 from app.dao import get_coupon_condition, get_usage_text, query_coupons_for_admin, get_coupon_create_dependencies, \
-    create_coupon_from_form, get_coupon_form_data, update_coupon_from_form, delete_coupon_by_id
+    create_coupon_from_form, get_coupon_form_data, update_coupon_from_form, delete_coupon_by_id, \
+    validate_user_form_data_for_admin, admin_reset_user_password
 
 
 class AuthenticatedView(ModelView):
@@ -52,9 +53,100 @@ class MyAdminLogoutView(BaseView):
 
 
 class UserAdminView(AuthenticatedView):
+    list_template = "admin/user/user_list.html"
+    create_template = "admin/user/user_create.html"
+    edit_template = "admin/user/user_edit.html"
+
     column_list = ['id', 'name', 'username', 'email', 'phone', 'role', 'active', 'created_date']
     column_searchable_list = ['name', 'username', 'email', 'phone']
     column_filters = ['role', 'active']
+
+    form_columns = [
+        'name',
+        'email',
+        'phone',
+        'address',
+        'role',
+        'active'
+    ]
+
+    def on_model_change(self, form, model, is_created):
+        name = (form.name.data or "").strip()
+        email = (form.email.data or "").strip()
+        phone = (form.phone.data or "").strip()
+        address = (form.address.data or "").strip()
+
+        validate_user_form_data_for_admin(
+            name=name,
+            username=model.username,
+            email=email,
+            phone=phone,
+            address=address,
+            password="dummy123!",
+            user_id=None if is_created else model.id,
+            require_password=False
+        )
+
+        model.name = name
+        model.email = email
+        model.phone = phone
+        model.address = address
+
+    @expose("/reset-password/<int:user_id>", methods=["POST"])
+    def reset_password_view(self, user_id):
+        user = User.query.get_or_404(user_id)
+
+        try:
+            temp_password = admin_reset_user_password(user.id)
+            flash(f"Đã reset mật khẩu cho {user.username}. Mật khẩu tạm thời: {temp_password}", "success")
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), "danger")
+        except Exception:
+            db.session.rollback()
+            flash("Không thể reset mật khẩu cho user này.", "danger")
+
+        return redirect(url_for(".edit_view", id=user_id))
+
+    @expose("/")
+    def index_view(self):
+        page = request.args.get("page", 1, type=int)
+        per_page = app.config["PAGE_SIZE"]
+        search = (request.args.get("search") or "").strip()
+
+        query = User.query
+
+        if search:
+            keyword = f"%{search}%"
+            query = query.filter(
+                (User.name.ilike(keyword)) |
+                (User.username.ilike(keyword)) |
+                (User.email.ilike(keyword)) |
+                (User.phone.ilike(keyword))
+            )
+
+        query = query.order_by(User.id.desc())
+
+        total = query.count()
+        pages = (total + per_page - 1) // per_page if total > 0 else 1
+
+        if page < 1:
+            page = 1
+        if page > pages:
+            page = pages
+
+        users = query.offset((page - 1) * per_page).limit(per_page).all()
+
+        return self.render(
+            self.list_template,
+            data=users,
+            count=total,
+            current_page=page,
+            pages=pages,
+            has_prev=page > 1,
+            has_next=page < pages,
+            search=search
+        )
 
 
 class CategoryAdminView(AuthenticatedView):

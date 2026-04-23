@@ -10,7 +10,7 @@ from app.dao import (
     get_my_coupons, save_coupon_for_user, get_used_coupons, get_apply_type_text, get_coupon_condition,
     get_remaining_quantity, get_available_my_coupons_for_cart, validate_selected_coupon_for_cart,
     get_default_address_for_user, get_addresses_by_user, update_user_address, create_order_from_checkout,
-    get_orders_by_user
+    get_orders_by_user, get_recommended_products
 )
 from app.models import UserRole, Order, CartItem
 
@@ -21,9 +21,10 @@ def index():
         return redirect(url_for("admin.index"))
 
     page = request.args.get("page", 1, type=int)
+    q = request.args.get("q", "", type=str).strip()
 
     hero_banners = [f"pics/pics_sale{i}.jpg" for i in range(1, 5)]
-    product_data = get_active_products(page=page)
+    product_data = get_active_products(page=page, q=q)
 
     return render_template(
         "index.html",
@@ -31,7 +32,30 @@ def index():
         products=product_data["items"],
         current_page=product_data["page"],
         pages=product_data["pages"],
-        has_next=product_data["has_next"]
+        has_next=product_data["has_next"],
+        q=q
+    )
+
+
+@app.route("/search")
+def search_products():
+    if current_user.is_authenticated and current_user.role == UserRole.ADMIN:
+        return redirect(url_for("admin.index"))
+
+    page = request.args.get("page", 1, type=int)
+    keyword = request.args.get("keyword", "", type=str).strip()
+
+    product_data = get_active_products(page=page, q=keyword)
+
+    return render_template(
+        "search.html",
+        products=product_data["items"],
+        current_page=product_data["page"],
+        pages=product_data["pages"],
+        total=product_data["total"],
+        has_next=product_data["has_next"],
+        has_prev=product_data["has_prev"],
+        keyword=keyword
     )
 
 
@@ -166,6 +190,7 @@ def product_detail(product_id):
     )
 
 
+# CART
 @app.route("/cart")
 @login_required
 def cart():
@@ -345,6 +370,22 @@ def delete_cart_item(product_id):
     db.session.commit()
 
     return jsonify(stats_cart_db(cart))
+
+
+# RECOMMEND
+@app.route("/recommend")
+def recommend():
+    page = request.args.get("page", 1, type=int)
+    product_data = get_recommended_products(page=page)
+
+    return render_template(
+        "recommend.html",
+        products=product_data["items"],
+        current_page=product_data["page"],
+        pages=product_data["pages"],
+        has_prev=product_data["has_prev"],
+        has_next=product_data["has_next"]
+    )
 
 
 # Mua lại

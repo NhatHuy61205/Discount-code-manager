@@ -7,12 +7,16 @@
         </button>
 
         <div class="collapse navbar-collapse" id="mainNavbar">
-            <form class="d-flex mx-lg-auto my-3 my-lg-0 w-100" style="max-width: 540px;" method="GET" action="#">
+            <form class="d-flex mx-lg-auto my-3 my-lg-0 w-100"
+                  style="max-width: 540px;"
+                  method="GET"
+                  action="{{ url_for('search_products') }}">
                 <input
                         class="form-control rounded-pill me-2"
                         type="search"
-                        name="q"
+                        name="keyword"
                         placeholder="Tìm sản phẩm..."
+                        value="{{ request.args.get('keyword', '') }}"
                 >
                 <button class="btn btn-danger rounded-pill px-4" type="submit">Tìm</button>
             </form>

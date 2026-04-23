@@ -1,0 +1,163 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="user-page">
+    <div class="user-toolbar">
+        <div>
+            <div class="user-page-badge">QUẢN LÝ NGƯỜI DÙNG</div>
+            <h2 class="user-page-title">Danh sách người dùng</h2>
+            <p class="user-page-desc">
+                Theo dõi tài khoản hệ thống, trạng thái hoạt động và phân quyền người dùng.
+            </p>
+        </div>
+    </div>
+
+    <div class="user-filter-card">
+        <form method="get" action="{{ return_url }}" class="user-filter-form">
+            <div class="user-filter-grid">
+                <div class="user-filter-search">
+                    <i class="bi bi-search"></i>
+                    <input
+                            type="text"
+                            name="search"
+                            value="{{ request.args.get('search', '') }}"
+                            placeholder="Tìm theo tên, username, email, số điện thoại"
+                    >
+                </div>
+
+                <button type="submit" class="user-search-btn">
+                    Tìm kiếm
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="user-add-wrap">
+        <a href="{{ url_for('.create_view') }}" class="user-add-btn">
+            <i class="bi bi-plus-lg"></i>
+            <span>Thêm người dùng</span>
+        </a>
+    </div>
+
+
+    <div class="user-table-card">
+        <div class="user-table-head">
+            <div>
+                <h5>Người dùng hệ thống</h5>
+                <span>Tổng cộng: {{ count if count is defined else '---' }}</span>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table user-table align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Người dùng</th>
+                    <th>Email</th>
+                    <th>Số điện thoại</th>
+                    <th>Vai trò</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày tạo</th>
+                    <th class="text-center">Thao tác</th>
+                </tr>
+                </thead>
+
+                <tbody>
+                {% for row in data %}
+                {% set user = row %}
+                <tr>
+                    <td class="fw-bold">#{{ user.id }}</td>
+
+                    <td>
+                        <div class="user-info-block">
+                            <div class="user-avatar">
+                                {{ (user.name or 'U')[0]|upper }}
+                            </div>
+
+                            <div class="user-meta">
+                                <div class="user-name">{{ user.name }}</div>
+                                <div class="user-username">@{{ user.username }}</div>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.phone or '---' }}</td>
+
+                    <td>
+                        {% if user.role.name == 'ADMIN' %}
+                        <span class="user-role-badge role-admin">Admin</span>
+                        {% else %}
+                        <span class="user-role-badge role-user">User</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if user.active %}
+                        <span class="user-status-badge status-active">
+                                    <i class="bi bi-check-circle-fill"></i> Hoạt động
+                                </span>
+                        {% else %}
+                        <span class="user-status-badge status-inactive">
+                                    <i class="bi bi-x-circle-fill"></i> Đã khóa
+                                </span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if user.created_date %}
+                        {{ user.created_date.strftime('%H:%M - %d/%m/%Y') }}
+                        {% else %}
+                        ---
+                        {% endif %}
+                    </td>
+
+                    <td class="text-center">
+                        <div class="user-actions">
+                            <a href="{{ get_url('.edit_view', id=user.id, url=return_url) }}"
+                               class="user-action-btn edit-btn" title="Chỉnh sửa">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+
+                            <form method="post"
+                                  action="{{ get_url('.delete_view') }}"
+                                  style="display:inline-block;"
+                                  onsubmit="return confirm('Bạn có chắc muốn xóa người dùng này?');">
+                                <input type="hidden" name="id" value="{{ user.id }}">
+                                <input type="hidden" name="url" value="{{ return_url }}">
+                                <button type="submit" class="user-action-btn delete-btn" title="Xóa">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-muted">
+                        Không có người dùng nào
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="user-pagination-wrap">
+            {% set prev_url = url_for('.index_view', page=current_page - 1, search=search) if has_prev else '#' %}
+            {% set next_url = url_for('.index_view', page=current_page + 1, search=search) if has_next else '#' %}
+
+            {% set page_links = [] %}
+            {% for p in range(1, pages + 1) %}
+            {% set _ = page_links.append({
+            'page': p,
+            'url': url_for('.index_view', page=p, search=search)
+            }) %}
+            {% endfor %}
+
+            {% include 'partials/pagination.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %}

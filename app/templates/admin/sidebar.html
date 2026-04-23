@@ -1,15 +1,65 @@
 <div id="sidebar" class="sidebar">
-    <a href="/admin/user/">Người dùng</a>
-    <a href="/admin/category/">Danh mục</a>
-    <a href="/admin/product/">Sản phẩm</a>
-    <a href="/admin/productdetail/">Chi tiết sản phẩm</a>
-    <a href="/admin/cart/">Giỏ hàng</a>
-    <a href="/admin/cartitem/">Chi tiết giỏ hàng</a>
-    <a href="/admin/coupontype/">Loại mã giảm giá</a>
-    <a href="/admin/coupon/">Mã giảm giá</a>
-    <a href="/admin/couponcategory/">Mã - danh mục</a>
-    <a href="/admin/usercoupon/">Mã của user</a>
-    <a href="/admin/order/">Đơn hàng</a>
-    <a href="/admin/orderitem/">Chi tiết đơn hàng</a>
-</div>
+    <a href="/admin/user/" class="{% if request.path.startswith('/admin/user/') %}active{% endif %}">
+        <i class="bi bi-people"></i>
+        <span>Người dùng</span>
+    </a>
 
+    <a href="/admin/category/" class="{% if request.path.startswith('/admin/category/') %}active{% endif %}">
+        <i class="bi bi-grid"></i>
+        <span>Danh mục</span>
+    </a>
+
+    <a href="/admin/product/"
+       class="{% if request.path.startswith('/admin/product/') and not request.path.startswith('/admin/productdetail/') %}active{% endif %}">
+        <i class="bi bi-box-seam"></i>
+        <span>Sản phẩm</span>
+    </a>
+
+    <a href="/admin/productdetail/" class="{% if request.path.startswith('/admin/productdetail/') %}active{% endif %}">
+        <i class="bi bi-card-text"></i>
+        <span>Chi tiết sản phẩm</span>
+    </a>
+
+    <a href="/admin/cart/"
+       class="{% if request.path.startswith('/admin/cart/') and not request.path.startswith('/admin/cartitem/') %}active{% endif %}">
+        <i class="bi bi-cart3"></i>
+        <span>Giỏ hàng</span>
+    </a>
+
+    <a href="/admin/cartitem/" class="{% if request.path.startswith('/admin/cartitem/') %}active{% endif %}">
+        <i class="bi bi-cart-check"></i>
+        <span>Chi tiết giỏ hàng</span>
+    </a>
+
+    <a href="/admin/coupontype/" class="{% if request.path.startswith('/admin/coupontype/') %}active{% endif %}">
+        <i class="bi bi-tags"></i>
+        <span>Loại mã giảm giá</span>
+    </a>
+
+    <a href="/admin/coupon/" class="{% if request.path.startswith('/admin/coupon/') %}active{% endif %}">
+        <i class="bi bi-ticket-perforated"></i>
+        <span>Mã giảm giá</span>
+    </a>
+
+    <a href="/admin/couponcategory/"
+       class="{% if request.path.startswith('/admin/couponcategory/') %}active{% endif %}">
+        <i class="bi bi-diagram-3"></i>
+        <span>Mã - danh mục</span>
+    </a>
+
+    <a href="/admin/usercoupon/" class="{% if request.path.startswith('/admin/usercoupon/') %}active{% endif %}">
+        <i class="bi bi-person-badge"></i>
+        <span>Mã của user</span>
+    </a>
+
+    <a href="/admin/order/"
+       class="{% if request.path.startswith('/admin/order/') and not request.path.startswith('/admin/orderitem/') %}active{% endif %}">
+        <i class="bi bi-receipt"></i>
+        <span>Đơn hàng</span>
+    </a>
+
+    <a href="/admin/orderitem/" class="{% if request.path.startswith('/admin/orderitem/') %}active{% endif %}">
+        <i class="bi bi-receipt-cutoff"></i>
+        <span>Chi tiết đơn hàng</span>
+    </a>
+</div>

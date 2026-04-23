@@ -1,0 +1,56 @@
+{% extends 'admin/master.html' %}
+{% import 'admin/lib.html' as lib with context %}
+
+{% block body %}
+<div class="user-form-page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="mb-3">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'danger' else category }} alert-dismissible fade show rounded-4"
+             role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="user-form-toolbar">
+        <div>
+            <div class="user-page-badge">CHỈNH SỬA NGƯỜI DÙNG</div>
+            <h2 class="user-page-title">Cập nhật tài khoản</h2>
+            <p class="user-page-desc">
+                Chỉnh sửa thông tin người dùng trong hệ thống quản trị.
+            </p>
+        </div>
+
+        <a href="{{ url_for('.index_view') }}" class="user-form-back-btn">
+            <i class="bi bi-arrow-left"></i>
+            <span>Quay lại danh sách</span>
+        </a>
+    </div>
+
+    <div class="user-form-card">
+        <div class="user-form-card-head">
+            <h5>Thông tin tài khoản</h5>
+            <span>Chỉnh sửa dữ liệu người dùng và lưu thay đổi</span>
+        </div>
+
+        <div class="user-form-body">
+            {{ lib.render_form(form, return_url, extra=None, form_opts=form_opts) }}
+
+            <div class="user-form-extra-actions mt-3">
+                <form method="post" action="{{ url_for('.reset_password_view', user_id=model.id) }}"
+                      onsubmit="return confirm('Bạn chắc chắn muốn reset mật khẩu của user này?');">
+                    <button type="submit" class="user-reset-password-btn">
+                        <i class="bi bi-key"></i>
+                        <span>Reset mật khẩu</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

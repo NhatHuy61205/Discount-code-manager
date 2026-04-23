@@ -1,6 +1,8 @@
 import hashlib
 import math
+import random
 import re
+import string
 from datetime import datetime
 
 from sqlalchemy import text
@@ -9,7 +11,7 @@ from app import app, db
 from app import login
 from app.models import User, CouponStatus, CouponCondition, Product, CouponApplyType, DiscountKind, Coupon, Category, \
     CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon, UserAddress, Address, OrderItem, Order, \
-    OrderStatus
+    OrderStatus, ProductDetail
 
 
 # USER
@@ -58,6 +60,87 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
+def admin_reset_user_password(user_id, new_password=None):
+    user = User.query.get(user_id)
+
+    if not user:
+        raise ValueError("Người dùng không tồn tại")
+
+    if not new_password:
+        chars = string.ascii_letters + string.digits
+        new_password = "".join(random.choice(chars) for _ in range(10)) + "@1"
+
+    if len(new_password) < 8:
+        raise ValueError("Mật khẩu mới không hợp lệ")
+
+    user.password = hashlib.md5(new_password.encode("utf-8")).hexdigest()
+    db.session.commit()
+
+    return new_password
+
+
+def validate_user_form_data_for_admin(
+        name,
+        username,
+        email,
+        phone,
+        address,
+        password,
+        user_id=None,
+        require_password=True
+):
+    name = (name or "").strip()
+    username = (username or "").strip()
+    email = (email or "").strip()
+    phone = (phone or "").strip()
+    address = (address or "").strip()
+    password = password or ""
+
+    if not all([name, username, email, address]):
+        raise ValueError("Vui lòng nhập đầy đủ thông tin")
+
+    if require_password and not password:
+        raise ValueError("Vui lòng nhập mật khẩu")
+
+    if password:
+        if len(password) < 8:
+            raise ValueError("Mật khẩu phải tối thiểu 8 ký tự")
+
+        if not re.search(r"[A-Za-z]", password):
+            raise ValueError("Mật khẩu phải chứa chữ")
+
+        if not re.search(r"\d", password):
+            raise ValueError("Mật khẩu phải chứa số")
+
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+            raise ValueError("Mật khẩu phải chứa ký tự đặc biệt")
+
+    if phone and not re.fullmatch(r"\d{10}", phone):
+        raise ValueError("Số điện thoại phải đúng 10 chữ số")
+
+    existed_username = User.query.filter(
+        User.username == username,
+        User.id != user_id if user_id else True
+    ).first()
+    if existed_username:
+        raise ValueError("Tên đăng nhập đã tồn tại")
+
+    existed_email = User.query.filter(
+        User.email == email,
+        User.id != user_id if user_id else True
+    ).first()
+    if existed_email:
+        raise ValueError("Email đã tồn tại")
+
+    if phone:
+        existed_phone = User.query.filter(
+            User.phone == phone,
+            User.id != user_id if user_id else True
+        ).first()
+        if existed_phone:
+            raise ValueError("Số điện thoại đã được sử dụng")
+
+
 def register_user(name, username, email, phone, address, password, confirm):
     name = (name or "").strip()
     username = (username or "").strip()
@@ -67,35 +150,19 @@ def register_user(name, username, email, phone, address, password, confirm):
     password = password or ""
     confirm = confirm or ""
 
-    if not all([name, username, email, address, password, confirm]):
-        raise ValueError("Vui lòng nhập đầy đủ thông tin")
-
-    if len(password) < 8:
-        raise ValueError("Mật khẩu phải tối thiểu 8 ký tự")
-
-    if not re.search(r"[A-Za-z]", password):
-        raise ValueError("Mật khẩu phải chứa chữ")
-
-    if not re.search(r"\d", password):
-        raise ValueError("Mật khẩu phải chứa số")
-
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        raise ValueError("Mật khẩu phải chứa ký tự đặc biệt")
+    validate_user_form_data_for_admin(
+        name=name,
+        username=username,
+        email=email,
+        phone=phone,
+        address=address,
+        password=password,
+        user_id=None,
+        require_password=True
+    )
 
     if password != confirm:
         raise ValueError("Mật khẩu không khớp")
-
-    if phone and not re.fullmatch(r"\d{10}", phone):
-        raise ValueError("Số điện thoại phải đúng 10 chữ số")
-
-    if get_user_by_username(username):
-        raise ValueError("Tên đăng nhập đã tồn tại")
-
-    if get_user_by_email(email):
-        raise ValueError("Email đã tồn tại")
-
-    if phone and get_user_by_phone(phone):
-        raise ValueError("Số điện thoại đã được sử dụng")
 
     password = hashlib.md5(password.encode("utf-8")).hexdigest()
 
@@ -673,7 +740,23 @@ def validate_selected_coupon_for_cart(user, coupon_id, selected_product_ids):
 
 # PRODUCT
 
-def get_active_products(page=1):
+def get_active_products(page=1, q=None):
+    query = Product.query.filter(Product.active == True)
+
+    if q:
+        keyword = f"%{q.strip()}%"
+        query = query.outerjoin(Product.product_detail).outerjoin(Product.category).filter(
+            (Product.name.ilike(keyword)) |
+            (ProductDetail.description.ilike(keyword)) |
+            (Category.name.ilike(keyword))
+        )
+
+    query = query.order_by(Product.id.desc())
+    return paginate_query(query, page=page)
+
+
+# recommend
+def get_recommended_products(page=1):
     query = Product.query.filter_by(active=True).order_by(Product.id.desc())
     return paginate_query(query, page=page)
 

@@ -1,0 +1,104 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Kết quả tìm kiếm{% endblock %}
+
+{% block content %}
+<section id="products">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="section-title">
+                Kết quả tìm kiếm cho: "{{ keyword }}"
+            </h2>
+            <p class="section-subtitle">
+                Tìm thấy {{ total }} sản phẩm phù hợp
+            </p>
+        </div>
+    </div>
+
+    {% if products and products|length > 0 %}
+    <div class="row g-4">
+        {% for product in products %}
+        <div class="col-sm-6 col-lg-4">
+            <div class="card product-card h-100">
+                <img
+                        src="{{ product.image if product.image else 'https://via.placeholder.com/600x400?text=No+Image' }}"
+                        class="product-image card-img-top"
+                        alt="{{ product.name }}"
+                >
+
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title fw-bold">{{ product.name }}</h5>
+
+                    <p class="card-text text-muted small">
+                        {{ product.product_detail.description if product.product_detail and
+                        product.product_detail.description else 'Chưa có mô tả cho sản phẩm này.' }}
+                    </p>
+
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <span class="price-new">
+                            {{ "{:,.0f}".format(product.price).replace(",", ".") }}đ
+                        </span>
+                    </div>
+
+                    <div class="d-grid mt-auto">
+                        {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('product_detail', product_id=product.id) }}"
+                           class="btn btn-outline-danger rounded-pill">
+                            Xem chi tiết
+                        </a>
+                        {% else %}
+                        <a href="#" class="btn btn-outline-danger rounded-pill require-login">
+                            Xem chi tiết
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if pages > 1 %}
+    <nav class="mt-5">
+        <ul class="pagination justify-content-center align-items-center gap-2 recommend-pagination">
+
+            <li class="page-item {% if not has_prev %}disabled{% endif %}">
+                <a class="page-link"
+                   href="{% if has_prev %}{{ url_for('search_products', keyword=keyword, page=current_page - 1) }}{% else %}#{% endif %}"
+                   aria-label="Previous">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+
+            {% for p in range(1, pages + 1) %}
+            <li class="page-item {% if p == current_page %}active{% endif %}">
+                <a class="page-link"
+                   href="{{ url_for('search_products', keyword=keyword, page=p) }}">
+                    {{ p }}
+                </a>
+            </li>
+            {% endfor %}
+
+            <li class="page-item {% if not has_next %}disabled{% endif %}">
+                <a class="page-link"
+                   href="{% if has_next %}{{ url_for('search_products', keyword=keyword, page=current_page + 1) }}{% else %}#{% endif %}"
+                   aria-label="Next">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5">
+        <h4 class="fw-bold mb-2">Không tìm thấy sản phẩm phù hợp</h4>
+        <p class="text-muted mb-3">Thử từ khóa khác nhé.</p>
+        <a href="{{ url_for('index') }}" class="btn btn-danger rounded-pill px-4">
+            Quay về trang chủ
+        </a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

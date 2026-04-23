@@ -1,0 +1,29 @@
+{% if pages > 1 %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center align-items-center gap-2 recommend-pagination">
+        <li class="page-item {% if not has_prev %}disabled{% endif %}">
+            <a class="page-link"
+               href="{% if has_prev %}{{ prev_url }}{% else %}#{% endif %}"
+               aria-label="Previous">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+
+        {% for item in page_links %}
+        <li class="page-item {% if item.page == current_page %}active{% endif %}">
+            <a class="page-link" href="{{ item.url }}">
+                {{ item.page }}
+            </a>
+        </li>
+        {% endfor %}
+
+        <li class="page-item {% if not has_next %}disabled{% endif %}">
+            <a class="page-link"
+               href="{% if has_next %}{{ next_url }}{% else %}#{% endif %}"
+               aria-label="Next">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    </ul>
+</nav>
+{% endif %}

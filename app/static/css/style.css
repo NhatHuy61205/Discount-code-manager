@@ -3367,3 +3367,55 @@
         width: 100%;
     }
 }
+/*CSS RECOMMEND */
+.recommend-pagination .page-link {
+    min-width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    background: transparent;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+.recommend-pagination .page-item.active .page-link {
+    background: #dc3545;
+    color: #fff;
+}
+
+.recommend-pagination .page-item.disabled .page-link {
+    color: #b8b8b8;
+    pointer-events: none;
+    background: transparent;
+}
+
+.recommend-pagination .page-link:hover {
+    background: #fff1ec;
+    color: #dc3545;
+}
+.recommend-header {
+    text-align: center;
+}
+
+.recommend-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color:  var(--cart-primary);
+    position: relative;
+    display: inline-block;
+    padding: 0 40px;
+}
+
+
+
+.recommend-title::before {
+    left: 0;
+}
+
+.recommend-title::after {
+    right: 0;
+}

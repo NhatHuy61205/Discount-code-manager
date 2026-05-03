@@ -1,17 +1,12 @@
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
-
-from sqlalchemy.ext.asyncio import result
-from werkzeug.datastructures import MultiDict
 from app.test.test_base import test_session, test_app
 from app import dao
-from app.models import Coupon, DiscountKind, CouponStatus, CouponCondition, CouponProduct, CouponTargetType, User, \
+from app.models import Coupon, DiscountKind, CouponStatus,  User, \
     Category, Product, UserCoupon, Cart, CartItem, CouponCategory, CouponApplyType
 
 
 def get_past(day=1): return datetime.now() - timedelta(days=day)
-def get_now(): return datetime.now() + timedelta(minutes=1)
 def get_future(day=1): return datetime.now() + timedelta(days=day)
 
 @pytest.fixture

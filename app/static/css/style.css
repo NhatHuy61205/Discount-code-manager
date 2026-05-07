@@ -3705,3 +3705,27 @@ nav.navbar {
         height: 50px;
     }
 }
+/* =========================
+   AUTH HEADER LOGIN / REGISTER
+========================= */
+.auth-navbar {
+    min-height: 84px;
+}
+
+.auth-navbar .container {
+    justify-content: flex-start;
+}
+
+.auth-brand-wrap {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.auth-page-title {
+    font-size: 1.65rem;
+    font-weight: 500;
+    color: #212529;
+    line-height: 1;
+    padding-left: 4px;
+}

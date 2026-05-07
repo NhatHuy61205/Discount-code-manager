@@ -1,7 +1,24 @@
-<nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm py-3">
-    <div class="container">
-        <a class="navbar-brand fw-bold fs-4 text-danger" href="/">Discount Shop</a>
+{% set is_auth_page = request.endpoint in ['login', 'register'] %}
 
+<nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm py-3 {% if is_auth_page %}auth-navbar{% endif %}">
+    <div class="container">
+        <div class="auth-brand-wrap">
+            <a class="navbar-brand fw-bold fs-4 text-danger mb-0" href="/">
+                Discount Shop
+            </a>
+
+            {% if is_auth_page %}
+            <span class="auth-page-title">
+                    {% if request.endpoint == 'login' %}
+                        Đăng nhập
+                    {% else %}
+                        Đăng ký
+                    {% endif %}
+                </span>
+            {% endif %}
+        </div>
+
+        {% if not is_auth_page %}
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -11,6 +28,7 @@
                   style="max-width: 540px;"
                   method="GET"
                   action="{{ url_for('search_products') }}">
+
                 <input
                         class="form-control rounded-pill me-2"
                         type="search"
@@ -18,7 +36,10 @@
                         placeholder="Tìm sản phẩm..."
                         value="{{ request.args.get('keyword', '') }}"
                 >
-                <button class="btn btn-danger rounded-pill px-4" type="submit">Tìm</button>
+
+                <button class="btn btn-danger rounded-pill px-4" type="submit">
+                    Tìm
+                </button>
             </form>
 
             <div class="d-flex align-items-center gap-3 ms-lg-4">
@@ -30,12 +51,8 @@
                     </button>
 
                     <div class="header-user-dropdown">
-                        <a href="{{ url_for('my_orders') }}" class="header-user-dropdown__item">
-                            Đơn mua
-                        </a>
-                        <a href="{{ url_for('logout') }}" class="header-user-dropdown__item">
-                            Đăng xuất
-                        </a>
+                        <a href="{{ url_for('my_orders') }}" class="header-user-dropdown__item">Đơn mua</a>
+                        <a href="{{ url_for('logout') }}" class="header-user-dropdown__item">Đăng xuất</a>
                     </div>
                 </div>
 
@@ -44,83 +61,27 @@
                     <a href="{{ url_for('cart') }}"
                        class="btn btn-outline-danger rounded-pill px-3 position-relative header-cart-trigger">
                         <i class="bi bi-cart3"></i>
-
                         <span id="cart-badge"
                               class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {% if not cart_count %}d-none{% endif %}">
-            {{ cart_count or 0 }}
-        </span>
+                            {{ cart_count or 0 }}
+                        </span>
                     </a>
-
-                    <div class="header-cart-dropdown {% if not cart_count %}is-empty{% endif %}">
-                        <div class="header-cart-dropdown__title">
-                            Sản phẩm mới thêm
-                        </div>
-
-                        {% if cart_preview_items %}
-                        <div class="header-cart-dropdown__list">
-                            {% for item in cart_preview_items %}
-                            <a href="{{ url_for('cart') }}" class="header-cart-dropdown__item">
-                                <img
-                                        src="{{ item.product.image if item.product and item.product.image else 'https://via.placeholder.com/60x60?text=No+Image' }}"
-                                        alt="{{ item.product.name if item.product else 'Sản phẩm' }}"
-                                        class="header-cart-dropdown__img"
-                                >
-
-                                <div class="header-cart-dropdown__info">
-                                    <div class="header-cart-dropdown__name">
-                                        {{ item.product.name if item.product else 'Sản phẩm không tồn tại' }}
-                                    </div>
-                                </div>
-
-                                <div class="header-cart-dropdown__price">
-                                    {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
-                                </div>
-                            </a>
-                            {% endfor %}
-                        </div>
-
-                        <div class="header-cart-dropdown__footer">
-                            <span>{{ cart_preview_total }} sản phẩm trong giỏ</span>
-                            <a href="{{ url_for('cart') }}" class="header-cart-dropdown__view-btn">
-                                Xem Giỏ Hàng
-                            </a>
-                        </div>
-                        {% else %}
-                        <div class="header-cart-dropdown__empty">
-                            Chưa có sản phẩm nào trong giỏ hàng.
-                        </div>
-                        {% endif %}
-                    </div>
                 </div>
                 {% endif %}
-                {% else %}
-                <a href="{{ url_for('login') }}" class="text-decoration-none text-dark fw-medium">
-                    Đăng nhập
-                </a>
 
-                <a href="{{ url_for('register') }}" class="text-decoration-none text-dark fw-medium">
-                    Đăng ký
-                </a>
+                {% else %}
+                <a href="{{ url_for('login') }}" class="text-decoration-none text-dark fw-medium">Đăng nhập</a>
+                <a href="{{ url_for('register') }}" class="text-decoration-none text-dark fw-medium">Đăng ký</a>
 
                 <div class="header-cart-menu">
                     <a href="#"
                        class="btn btn-outline-danger rounded-pill px-3 require-login position-relative header-cart-trigger">
                         <i class="bi bi-cart3"></i>
-
-                        <span id="cart-badge"
-                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {% if not cart_count %}d-none{% endif %}">
-            {{ cart_count or 0 }}
-        </span>
                     </a>
-
-                    <div class="header-cart-dropdown is-empty">
-                        <div class="header-cart-dropdown__empty">
-                            Vui lòng đăng nhập để xem giỏ hàng.
-                        </div>
-                    </div>
                 </div>
                 {% endif %}
             </div>
         </div>
+        {% endif %}
     </div>
 </nav>

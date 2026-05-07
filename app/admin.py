@@ -229,9 +229,88 @@ class UserAdminView(AuthenticatedView):
 
 
 class CategoryAdminView(AuthenticatedView):
+    list_template = "admin/category/category_manage.html"
+
     column_list = ['id', 'name', 'description', 'active', 'created_date']
     column_searchable_list = ['name']
     column_filters = ['active']
+
+    @expose("/", methods=["GET"])
+    def index_view(self):
+        search = (request.args.get("search") or "").strip()
+        selected_id = request.args.get("id", type=int)
+        mode = request.args.get("mode", "view")
+
+        query = Category.query
+
+        if search:
+            keyword = f"%{search}%"
+            query = query.filter(Category.name.ilike(keyword))
+
+        categories = query.order_by(Category.id.desc()).all()
+        selected_category = Category.query.get(selected_id) if selected_id else None
+
+        return self.render(
+            self.list_template,
+            categories=categories,
+            selected_category=selected_category,
+            search=search,
+            mode=mode,
+            count=len(categories)
+        )
+
+    @expose("/save/", methods=["POST"])
+    def save_category(self):
+        category_id = request.form.get("id", type=int)
+        name = (request.form.get("name") or "").strip()
+        description = (request.form.get("description") or "").strip()
+        active = bool(request.form.get("active"))
+
+        if not name:
+            flash("Vui lòng nhập tên danh mục.", "danger")
+            return redirect(url_for(".index_view"))
+
+        try:
+            if category_id:
+                category = Category.query.get_or_404(category_id)
+                category.name = name
+                category.description = description
+                category.active = active
+                flash("Cập nhật danh mục thành công!", "success")
+            else:
+                category = Category(
+                    name=name,
+                    description=description,
+                    active=active
+                )
+                db.session.add(category)
+                flash("Tạo danh mục thành công!", "success")
+
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Không thể lưu danh mục: {e}", "danger")
+
+        return redirect(url_for(".index_view"))
+
+    @expose("/delete/<int:id>", methods=["POST"])
+    def delete_view(self, id):
+        category = Category.query.get_or_404(id)
+
+        try:
+            if category.products:
+                category.active = False
+                db.session.commit()
+                flash("Danh mục đã có sản phẩm nên không xóa cứng. Đã chuyển sang trạng thái ẩn.", "warning")
+            else:
+                db.session.delete(category)
+                db.session.commit()
+                flash("Xóa danh mục thành công!", "success")
+        except Exception:
+            db.session.rollback()
+            flash("Không thể xóa danh mục này.", "danger")
+
+        return redirect(url_for(".index_view"))
 
 
 class ProductAdminView(AuthenticatedView):

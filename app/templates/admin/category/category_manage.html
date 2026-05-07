@@ -1,0 +1,134 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="category-page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'danger' else category }} mb-3">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="category-head">
+        <div>
+            <h1>Danh mục</h1>
+            <p>Quản lý danh mục sản phẩm trong hệ thống</p>
+        </div>
+        <span>{{ count }} danh mục</span>
+    </div>
+
+    <div class="category-layout">
+        <div class="category-left-card">
+            <form method="get" class="category-search-box">
+                <i class="bi bi-search"></i>
+                <input type="text" name="search" value="{{ search }}" placeholder="Tìm theo tên danh mục...">
+            </form>
+
+            <a href="{{ url_for('.index_view', mode='create') }}" class="category-add-btn">
+                <i class="bi bi-plus-lg"></i>
+                Thêm mới
+            </a>
+
+            <div class="category-list">
+                {% for c in categories %}
+                <a href="{{ url_for('.index_view', id=c.id, search=search) }}"
+                   class="category-item {% if selected_category and selected_category.id == c.id %}active{% endif %}">
+                    <div>
+                        <div class="category-item-title">{{ c.name }}</div>
+                        <div class="category-item-desc">
+                            {{ c.description or 'Chưa có mô tả' }}
+                        </div>
+                    </div>
+
+                    {% if c.active %}
+                    <span class="category-status active">Kích hoạt</span>
+                    {% else %}
+                    <span class="category-status inactive">Đã ẩn</span>
+                    {% endif %}
+                </a>
+                {% else %}
+                <div class="category-empty-left">
+                    Không có danh mục nào
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="category-right-card">
+            {% if mode == 'create' %}
+            <h2>Thêm danh mục</h2>
+            <p class="category-subtitle">Tạo danh mục sản phẩm mới</p>
+
+            <form method="post" action="{{ url_for('.save_category') }}" class="category-form">
+                <div class="category-form-group">
+                    <label>Tên danh mục <span>*</span></label>
+                    <input type="text" name="name" placeholder="Nhập tên danh mục">
+                </div>
+
+                <div class="category-form-group">
+                    <label>Mô tả</label>
+                    <textarea name="description" rows="5" placeholder="Nhập mô tả danh mục"></textarea>
+                </div>
+
+                <label class="category-check">
+                    <input type="checkbox" name="active" checked>
+                    <span>Kích hoạt danh mục</span>
+                </label>
+
+                <div class="category-actions">
+                    <a href="{{ url_for('.index_view') }}" class="category-cancel-btn">Hủy</a>
+                    <button type="submit" class="category-save-btn">Tạo mới</button>
+                </div>
+            </form>
+
+            {% elif selected_category %}
+            <h2>Chỉnh sửa danh mục</h2>
+            <p class="category-subtitle">Đang chỉnh sửa: {{ selected_category.name }}</p>
+
+            <form method="post" action="{{ url_for('.save_category') }}" class="category-form">
+                <input type="hidden" name="id" value="{{ selected_category.id }}">
+
+                <div class="category-form-group">
+                    <label>Tên danh mục <span>*</span></label>
+                    <input type="text" name="name" value="{{ selected_category.name }}">
+                </div>
+
+                <div class="category-form-group">
+                    <label>Mô tả</label>
+                    <textarea name="description" rows="5">{{ selected_category.description or '' }}</textarea>
+                </div>
+
+                <label class="category-check">
+                    <input type="checkbox" name="active" {% if selected_category.active %}checked{% endif %}>
+                    <span>Kích hoạt danh mục</span>
+                </label>
+
+                <div class="category-actions">
+                    <form></form>
+                    <button type="submit" class="category-save-btn">Lưu thay đổi</button>
+                </div>
+            </form>
+
+            <form method="post"
+                  action="{{ url_for('.delete_view', id=selected_category.id) }}"
+                  onsubmit="return confirm('Bạn có chắc muốn xóa danh mục này không?');">
+                <button type="submit" class="category-delete-btn">
+                    <i class="bi bi-trash"></i>
+                    Xóa danh mục
+                </button>
+            </form>
+
+            {% else %}
+            <div class="category-placeholder">
+                <i class="bi bi-grid"></i>
+                <h3>Chọn một danh mục để xem chi tiết</h3>
+                <p>Hoặc nhấn “Thêm mới” để tạo danh mục mới</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

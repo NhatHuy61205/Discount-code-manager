@@ -97,7 +97,6 @@ def seed_data():
             name=f"Sản phẩm {i}",
             price=random.randint(100, 500) * 1000,
             cate_id=random.choice(categories).id,
-            image="https://via.placeholder.com/300",
             stock_quantity=random.randint(1, 200)
         )
         products.append(p)
@@ -107,14 +106,20 @@ def seed_data():
 
     # ===== 4. PRODUCT DETAIL =====
     for p in products:
-        detail = ProductDetail(
-            product_id=p.id,
-            description=f"Mô tả cho {p.name}",
-            origin="Việt Nam",
-            warranty="12 tháng"
-        )
-        db.session.add(detail)
+        num_images = random.randint(2, 4)
 
+        for idx in range(num_images):
+            img_url = f"https://via.placeholder.com/300?text={p.name}-{idx}"
+
+            img = ProductImage(
+                product_id=p.id,
+                image=img_url,
+                is_main=(idx == 0)
+            )
+            db.session.add(img)
+
+            if idx == 0:
+                p.image = img_url
     db.session.commit()
 
     # ===== 5. COUPON TYPE =====

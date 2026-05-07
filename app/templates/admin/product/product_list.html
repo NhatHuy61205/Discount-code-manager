@@ -1,0 +1,198 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="coupon-page">
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+    {% set category, message = messages[-1] %}
+    <div class="alert alert-{{ 'danger' if category == 'danger' else category }} mb-3">
+        {{ message }}
+    </div>
+{% endif %}
+{% endwith %}
+    <div class="coupon-toolbar">
+        <form method="get" class="coupon-filter-form">
+            <div class="coupon-filter-title">Sản phẩm</div>
+
+            <div class="coupon-filter-row coupon-filter-row-bottom">
+    <div class="coupon-field">
+        <label class="coupon-label">Tên sản phẩm</label>
+        <input type="text"
+               name="search"
+               class="form-control coupon-input"
+               value="{{ search }}"
+               placeholder="Nhập tên sản phẩm">
+    </div>
+
+    <div class="coupon-field">
+        <label class="coupon-label">Danh mục</label>
+        <select name="category_id" class="form-select coupon-input">
+            <option value="">Tất cả danh mục</option>
+            {% for c in categories %}
+            <option value="{{ c.id }}" {% if category_id == c.id %}selected{% endif %}>
+                {{ c.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="coupon-field">
+        <label class="coupon-label">Sắp xếp giá</label>
+        <select name="price_sort" class="form-select coupon-input">
+            <option value="">Mặc định</option>
+            <option value="asc" {% if price_sort == 'asc' %}selected{% endif %}>Giá thấp đến cao</option>
+            <option value="desc" {% if price_sort == 'desc' %}selected{% endif %}>Giá cao đến thấp</option>
+        </select>
+    </div>
+
+    <div class="coupon-field">
+        <label class="coupon-label">Sắp xếp tồn kho</label>
+        <select name="stock_sort" class="form-select coupon-input">
+            <option value="">Mặc định</option>
+            <option value="asc" {% if stock_sort == 'asc' %}selected{% endif %}>Ít đến nhiều</option>
+            <option value="desc" {% if stock_sort == 'desc' %}selected{% endif %}>Nhiều đến ít</option>
+        </select>
+    </div>
+</div>
+
+            <div class="coupon-filter-divider"></div>
+
+            <div class="coupon-filter-actions">
+                <a href="{{ get_url('.index_view') }}" class="coupon-btn coupon-btn-reset">
+                    Làm mới
+                </a>
+                <button type="submit" class="coupon-btn coupon-btn-search">
+                    Tìm kiếm
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="d-flex justify-content-end mb-3">
+        <a href="{{ get_url('.create_view') }}" class="btn btn-danger">
+            Thêm sản phẩm
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 coupon-table">
+                    <thead>
+                    <tr>
+                        <th>Sản phẩm</th>
+                        <th>Danh mục</th>
+                        <th>Giá</th>
+                        <th>Tồn kho</th>
+                        <th>Trạng thái</th>
+                        <th>Ngày tạo</th>
+                        <th class="text-center">Thao tác</th>
+                    </tr>
+                    </thead>
+
+                    <tbody>
+                    {% for p in data %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+
+
+                                <div>
+                                    <div class="fw-bold">{{ p.name }}</div>
+                                    <div class="small text-muted">ID: {{ p.id }}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td>{{ p.category.name if p.category else 'Chưa có danh mục' }}</td>
+
+                        <td class="text-danger">
+                            {{ "{:,.0f}".format(p.price or 0).replace(",", ".") }}đ
+                        </td>
+
+                        <td>{{ p.stock_quantity or 0 }}</td>
+
+                        <td>
+                            {% if p.active %}
+                            <span class="badge rounded-pill bg-success-subtle text-success">Đang bán</span>
+                            {% else %}
+                            <span class="badge rounded-pill bg-danger-subtle text-danger">Đã ẩn</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if p.created_date %}
+                            {{ p.created_date.strftime('%d/%m/%Y') }}
+                            {% endif %}
+                        </td>
+
+                        <td class="text-center">
+                            <div class="dropdown">
+                                <button
+                                        class="btn btn-light btn-sm px-3 action-dot-btn dropdown-toggle-no-caret"
+                                        type="button"
+                                        data-toggle="dropdown"
+                                        aria-haspopup="true"
+                                        aria-expanded="false">
+                                    ...
+                                </button>
+
+                                <ul class="dropdown-menu dropdown-menu-right">
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{{ get_url('.edit_view', id=p.id) }}">
+                                            Chỉnh sửa
+                                        </a>
+                                    </li>
+
+                                    <li>
+                                        <form method="post"
+                                              action="{{ get_url('.delete_view', id=p.id) }}"
+                                              onsubmit="return confirm('Bạn có chắc muốn xóa sản phẩm này?');">
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                Xóa
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            Không có sản phẩm nào
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% if pages > 1 %}
+    <div class="user-pagination-wrap mt-3">
+        <nav>
+            <ul class="pagination justify-content-end mb-0">
+                {% for p in range(1, pages + 1) %}
+                <li class="page-item {% if p == current_page %}active{% endif %}">
+                    <a class="page-link"
+                       href="{{ get_url('.index_view',
+    page=p,
+    search=search,
+    category_id=category_id,
+    price_sort=price_sort,
+    stock_sort=stock_sort
+) }}">
+                        {{ p }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

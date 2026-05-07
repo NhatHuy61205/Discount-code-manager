@@ -521,8 +521,11 @@ document.querySelectorAll(".cart-item-row").forEach(row => {
             }
 
             updateCartRowUI(row, newQty);
-            updateCartBadge(data.total_items);
-            updateCartSelectionState();
+updateCartBadge(data.total_items);
+
+await refreshSelectedCouponDiscount();
+
+updateCartSelectionState();
         } catch (err) {
             alert(err.message);
         }
@@ -612,6 +615,46 @@ function updateSelectedProductCount() {
     const cartCount = document.getElementById("cart-count");
     if (cartCount) {
         cartCount.textContent = selectedRows.length;
+    }
+}
+async function refreshSelectedCouponDiscount() {
+    if (!selectedCoupon || !selectedCoupon.coupon_id) return;
+
+    const selectedProductIds = getSelectedCartProductIds();
+
+    if (!selectedProductIds.length) {
+        selectedCoupon = null;
+        return;
+    }
+
+    try {
+        const res = await fetch("/api/cart/apply-coupon", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                coupon_id: selectedCoupon.coupon_id,
+                selected_product_ids: selectedProductIds
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            selectedCoupon = null;
+
+            const actionText = document.querySelector(".cart-voucher-action");
+            if (actionText) {
+                actionText.textContent = "Chọn hoặc nhập mã";
+            }
+
+            return;
+        }
+
+        selectedCoupon = data.coupon;
+        selectedCoupon.selected_product_ids = [...selectedProductIds];
+
+    } catch (err) {
+        selectedCoupon = null;
     }
 }
 function updateCartSelectionState() {

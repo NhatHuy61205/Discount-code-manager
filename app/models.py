@@ -68,6 +68,12 @@ class Category(Base):
 
 class Product(Base):
     image = Column(String(300), nullable=True)
+    images = relationship(
+        "ProductImage",
+        backref="product",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
     price = Column(Float, default=0.0)
     cate_id = Column(Integer, ForeignKey(Category.id), nullable=False)
     stock_quantity = Column(Integer, default=0, nullable=False)
@@ -75,6 +81,14 @@ class Product(Base):
     product_detail = relationship('ProductDetail', backref='product', uselist=False)
     order_items = relationship('OrderItem', backref='product', lazy=True)
     coupon_products = relationship('CouponProduct', backref='product', lazy=True)
+
+
+class ProductImage(db.Model):
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey(Product.id), nullable=False)
+    image = Column(String(300), nullable=False)
+    is_main = Column(Boolean, default=False)
+    created_date = Column(DateTime, default=datetime.now)
 
 
 class Cart(db.Model):

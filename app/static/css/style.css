@@ -73,6 +73,23 @@
         margin-bottom: 0.25rem;
     }
 
+
+body {
+    padding-top: 82px;
+}
+
+nav.navbar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    width: 100%;
+}
+
+.main-content {
+    min-height: calc(100vh - 140px);
+}
     .section-subtitle {
         color: #6c757d;
         margin-bottom: 0;

@@ -3,13 +3,12 @@
 {% block body %}
 <div class="coupon-page">
     {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ 'danger' if category == 'danger' else category }} mb-3">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+    {% set category, message = messages[-1] %}
+    <div class="alert alert-{{ 'danger' if category == 'danger' else category }} mb-3">
+        {{ message }}
+    </div>
+{% endif %}
 {% endwith %}
 <div class="coupon-toolbar">
     <form method="get" class="coupon-filter-form">
@@ -224,27 +223,49 @@
     </div>
 
     {% if pages > 1 %}
-    <nav class="mt-3">
-        <ul class="pagination justify-content-end mb-0">
-            {% for p in range(1, pages + 1) %}
-            <li class="page-item {% if p == page %}active{% endif %}">
-                <a class="page-link"
-                   href="{{ url_for('.index_view',
-                        page=p,
-                        per_page=per_page,
-                        q=request.args.get('q', ''),
-                        apply_type=request.args.get('apply_type', ''),
-                        condition=request.args.get('condition', ''),
-                        status=request.args.get('status', ''),
-                        created_date=request.args.get('created_date', ''),
-                        start_date=request.args.get('start_date', '')
-                   ) }}">
-                    {{ p }}
-                </a>
-            </li>
-            {% endfor %}
-        </ul>
-    </nav>
-    {% endif %}
+<div class="user-pagination-wrap mt-3">
+    {% set prev_url = url_for('.index_view',
+        page=current_page - 1,
+        per_page=per_page,
+        q=q,
+        apply_type=apply_type,
+        condition=condition,
+        status=status,
+        created_date=created_date,
+        start_date=start_date
+    ) if has_prev else '#' %}
+
+    {% set next_url = url_for('.index_view',
+        page=current_page + 1,
+        per_page=per_page,
+        q=q,
+        apply_type=apply_type,
+        condition=condition,
+        status=status,
+        created_date=created_date,
+        start_date=start_date
+    ) if has_next else '#' %}
+
+    {% set page_links = [] %}
+    {% for p in range(1, pages + 1) %}
+        {% set _ = page_links.append({
+            'page': p,
+            'url': url_for('.index_view',
+                page=p,
+                per_page=per_page,
+                q=q,
+                apply_type=apply_type,
+                condition=condition,
+                status=status,
+                created_date=created_date,
+                start_date=start_date
+            )
+        }) %}
+    {% endfor %}
+
+    {% include 'partials/pagination.html' %}
+</div>
+{% endif %}
+
 </div>
 {% endblock %}

@@ -1,0 +1,174 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="coupon-create-page">
+
+    <form method="post" enctype="multipart/form-data" class="coupon-create-form">
+
+        <div class="coupon-create-card">
+            <h3 class="coupon-create-title">Thông tin sản phẩm</h3>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Tên sản phẩm</label>
+                <input type="text" name="name" class="form-control coupon-create-input" required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Giá</label>
+                <input type="number" name="price" class="form-control coupon-create-input" required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Tồn kho</label>
+                <input type="number" name="stock_quantity" class="form-control coupon-create-input" required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Danh mục</label>
+                <select name="cate_id" class="form-control coupon-create-input">
+                    {% for c in categories %}
+                    <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <h3 class="coupon-create-title">Chi tiết sản phẩm</h3>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Mô tả sản phẩm</label>
+                <textarea name="description"
+                          class="form-control coupon-create-input"
+                          rows="4"
+                          required></textarea>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Xuất xứ</label>
+                <input type="text"
+                       name="origin"
+                       class="form-control coupon-create-input"
+                       required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Bảo hành</label>
+                <input type="text"
+                       name="warranty"
+                       class="form-control coupon-create-input"
+                       placeholder="Ví dụ: 12 tháng"
+                       required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Ảnh sản phẩm</label>
+
+                <input type="file"
+                       id="productImageInput"
+                       name="image_files"
+                       class="form-control coupon-create-input"
+                       accept="image/png, image/jpeg, image/jpg, image/webp"
+                       multiple>
+
+                <small class="text-muted">
+                    Có thể chọn nhiều ảnh. Ảnh đầu tiên sẽ là ảnh chính. Có thể gỡ ảnh trước khi tạo.
+                </small>
+
+                <div id="productImagePreview" class="product-image-preview-list mt-3"></div>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-checkbox-item">
+                    <input type="checkbox" name="active" value="1" checked>
+                    <span>Đang bán</span>
+                </label>
+            </div>
+
+        </div>
+
+        <div class="coupon-create-actions">
+            <a href="{{ get_url('.index_view') }}" class="btn btn-light me-2">
+                Quay lại
+            </a>
+            <button type="submit" class="btn btn-danger coupon-submit-btn">
+                Tạo sản phẩm
+            </button>
+        </div>
+
+    </form>
+
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const input = document.getElementById("productImageInput");
+        const preview = document.getElementById("productImagePreview");
+
+        if (!input || !preview) return;
+
+        let selectedFiles = [];
+
+        function syncInputFiles() {
+            const dataTransfer = new DataTransfer();
+
+            selectedFiles.forEach(file => {
+                dataTransfer.items.add(file);
+            });
+
+            input.files = dataTransfer.files;
+        }
+
+        function renderPreview() {
+            preview.innerHTML = "";
+
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const item = document.createElement("div");
+                    item.className = "product-image-preview-item";
+
+                    item.innerHTML = `
+                        <div class="product-image-preview-img-wrap">
+                            <img src="${e.target.result}" alt="Ảnh sản phẩm">
+                            ${index === 0 ? '<span class="product-main-badge">Ảnh chính</span>' : ''}
+                        </div>
+
+                        <button type="button" class="product-remove-image-btn" data-index="${index}">
+    ✕
+</button>
+                    `;
+
+                    preview.appendChild(item);
+                };
+
+                reader.readAsDataURL(file);
+            });
+        }
+
+        input.addEventListener("change", function () {
+            const newFiles = Array.from(input.files);
+
+            newFiles.forEach(file => {
+                if (!file.type.startsWith("image/")) {
+                    alert("Chỉ được chọn file ảnh.");
+                    return;
+                }
+
+                selectedFiles.push(file);
+            });
+
+            syncInputFiles();
+            renderPreview();
+        });
+
+        preview.addEventListener("click", function (e) {
+            if (!e.target.classList.contains("product-remove-image-btn")) return;
+
+            const index = parseInt(e.target.dataset.index, 10);
+            selectedFiles.splice(index, 1);
+
+            syncInputFiles();
+            renderPreview();
+        });
+    });
+</script>
+{% endblock %}

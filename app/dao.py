@@ -13,6 +13,8 @@ from app.models import User, CouponStatus, CouponCondition, Product, CouponApply
     CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon, UserAddress, Address, OrderItem, Order, \
     OrderStatus, ProductDetail
 
+MAX_DISCOUNT_RATE = 0.5
+
 
 # USER
 
@@ -394,13 +396,18 @@ def is_coupon_applicable_to_product(coupon, product):
 
 
 def calculate_coupon_discount_for_product(coupon, product):
+    base_amount = product.price
+    max_allowed_discount = base_amount * MAX_DISCOUNT_RATE
+
     if coupon.discount_kind == DiscountKind.PERCENTAGE:
-        discount = product.price * (coupon.discount_value / 100)
+        discount = base_amount * (coupon.discount_value / 100)
+
         if coupon.max_discount_value:
             discount = min(discount, coupon.max_discount_value)
-        return discount
+    else:
+        discount = coupon.discount_value
 
-    return coupon.discount_value
+    return min(discount, max_allowed_discount)
 
 
 def get_best_coupon_for_product(product):
@@ -635,12 +642,17 @@ def get_available_my_coupons_for_cart(user, selected_product_ids):
 
         discount_amount = 0
         if is_usable:
+            max_allowed_discount = applicable_subtotal * MAX_DISCOUNT_RATE
+
             if coupon.discount_kind == DiscountKind.PERCENTAGE:
                 discount_amount = applicable_subtotal * (coupon.discount_value / 100)
+
                 if coupon.max_discount_value:
                     discount_amount = min(discount_amount, coupon.max_discount_value)
             else:
-                discount_amount = min(coupon.discount_value, applicable_subtotal)
+                discount_amount = coupon.discount_value
+
+            discount_amount = min(discount_amount, max_allowed_discount)
 
         result.append({
             "user_coupon_id": uc.id,
@@ -724,12 +736,17 @@ def validate_selected_coupon_for_cart(user, coupon_id, selected_product_ids):
     if selected_subtotal < (coupon.min_order_value or 0):
         raise ValueError("Chưa đạt giá trị đơn tối thiểu để áp dụng mã")
 
+    max_allowed_discount = applicable_subtotal * MAX_DISCOUNT_RATE
+
     if coupon.discount_kind == DiscountKind.PERCENTAGE:
         discount_amount = applicable_subtotal * (coupon.discount_value / 100)
+
         if coupon.max_discount_value:
             discount_amount = min(discount_amount, coupon.max_discount_value)
     else:
-        discount_amount = min(coupon.discount_value, applicable_subtotal)
+        discount_amount = coupon.discount_value
+
+    discount_amount = min(discount_amount, max_allowed_discount)
 
     return {
         "coupon_id": coupon.id,
@@ -879,6 +896,30 @@ def get_coupon_create_dependencies():
     return categories, products
 
 
+def parse_float_field(value, field_name, default=0):
+    value = str(value or "").strip()
+
+    if value == "":
+        return default
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} phải là số hợp lệ.")
+
+
+def parse_int_field(value, field_name, default=0):
+    value = str(value or "").strip()
+
+    if value == "":
+        return default
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} phải là số nguyên hợp lệ.")
+
+
 # Tạo mã giảm giá
 def create_coupon_from_form(form):
     name = form.get("name", "").strip()
@@ -889,12 +930,29 @@ def create_coupon_from_form(form):
     apply_scope = form.get("apply_scope", "all_product")
     target_type_raw = form.get("target_type", "all")
 
-    max_discount_value = form.get("max_discount_value")
-    max_discount_value = float(max_discount_value) if max_discount_value else None
+    max_discount_value = parse_float_field(
+        form.get("max_discount_value"),
+        "Giảm tối đa",
+        default=None
+    )
 
-    discount_value = float(form.get("discount_value") or 0)
-    min_order_value = float(form.get("min_order_value") or 0)
-    quantity = int(form.get("quantity") or 0)
+    discount_value = parse_float_field(
+        form.get("discount_value"),
+        "Mức giảm",
+        default=0
+    )
+
+    min_order_value = parse_float_field(
+        form.get("min_order_value"),
+        "Giá trị đơn tối thiểu",
+        default=0
+    )
+
+    quantity = parse_int_field(
+        form.get("quantity"),
+        "Số lượt sử dụng",
+        default=0
+    )
 
     start_date = parse_datetime_local(form.get("start_date"))
     end_date = parse_datetime_local(form.get("end_date"))
@@ -1005,12 +1063,30 @@ def update_coupon_from_form(coupon, form_data):
     description = form_data["description"]
 
     discount_kind_raw = form_data["discount_kind"]
-    discount_value = float(form_data["discount_value"] or 0)
-    min_order_value = float(form_data["min_order_value"] or 0)
-    quantity = int(form_data["quantity"] or 0)
+    discount_value = parse_float_field(
+        form_data["discount_value"],
+        "Mức giảm",
+        default=0
+    )
+
+    min_order_value = parse_float_field(
+        form_data["min_order_value"],
+        "Giá trị đơn tối thiểu",
+        default=0
+    )
+
+    quantity = parse_int_field(
+        form_data["quantity"],
+        "Số lượng",
+        default=0
+    )
     show_public = str(form_data.get("show_public", "")).strip() in ["1", "true", "True", "on"]
     max_discount_value_raw = form_data["max_discount_value"]
-    max_discount_value = float(max_discount_value_raw) if str(max_discount_value_raw).strip() != "" else None
+    max_discount_value = parse_float_field(
+        max_discount_value_raw,
+        "Giảm tối đa",
+        default=None
+    )
 
     start_date_raw = (form_data.get("start_date") or "").strip()
     end_date_raw = (form_data.get("end_date") or "").strip()

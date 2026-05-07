@@ -1,17 +1,21 @@
 import hashlib
 import math
+import os
 import random
 import re
 import string
+import uuid
 from datetime import datetime
 
-from sqlalchemy import text
+from flask import url_for
+from sqlalchemy import text, func, desc
+from werkzeug.utils import secure_filename
 
 from app import app, db
 from app import login
 from app.models import User, CouponStatus, CouponCondition, Product, CouponApplyType, DiscountKind, Coupon, Category, \
     CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon, UserAddress, Address, OrderItem, Order, \
-    OrderStatus, ProductDetail
+    OrderStatus, ProductDetail, CouponType, ProductImage, CartItem
 
 MAX_DISCOUNT_RATE = 0.5
 
@@ -755,6 +759,49 @@ def validate_selected_coupon_for_cart(user, coupon_id, selected_product_ids):
     }
 
 
+def update_cart_item_quantity(user, product_id, quantity):
+    cart = get_or_create_cart(user)
+    product = get_product_by_id(product_id)
+
+    quantity = int(quantity or 1)
+
+    if quantity <= 0:
+        raise ValueError("Số lượng phải lớn hơn 0")
+
+    if quantity > product.stock_quantity:
+        raise ValueError(f"Chỉ còn {product.stock_quantity} sản phẩm trong kho")
+
+    item = next(
+        (i for i in cart.cart_items if i.product_id == product.id),
+        None
+    )
+
+    if not item:
+        raise LookupError("Sản phẩm không có trong giỏ hàng")
+
+    item.quantity = quantity
+    db.session.commit()
+
+    return stats_cart_db(cart)
+
+
+def delete_cart_item_by_product(user, product_id):
+    cart = get_or_create_cart(user)
+
+    item = next(
+        (i for i in cart.cart_items if i.product_id == product_id),
+        None
+    )
+
+    if not item:
+        raise LookupError("Sản phẩm không có trong giỏ hàng")
+
+    db.session.delete(item)
+    db.session.commit()
+
+    return stats_cart_db(cart)
+
+
 # PRODUCT
 
 def get_active_products(page=1, q=None):
@@ -770,6 +817,44 @@ def get_active_products(page=1, q=None):
 
     query = query.order_by(Product.id.desc())
     return paginate_query(query, page=page)
+
+
+def add_product_to_cart(user, product_id, quantity=1):
+    cart = get_or_create_cart(user)
+    product = get_product_by_id(product_id)
+
+    quantity = int(quantity or 1)
+
+    if quantity <= 0:
+        raise ValueError("Số lượng phải lớn hơn 0")
+
+    if product.stock_quantity <= 0:
+        raise ValueError("Sản phẩm đã hết hàng")
+
+    item = next(
+        (i for i in cart.cart_items if i.product_id == product.id),
+        None
+    )
+
+    if item:
+        if item.quantity + quantity > product.stock_quantity:
+            raise ValueError(f"Chỉ còn {product.stock_quantity} sản phẩm trong kho")
+
+        item.quantity += quantity
+    else:
+        if quantity > product.stock_quantity:
+            raise ValueError(f"Chỉ còn {product.stock_quantity} sản phẩm trong kho")
+
+        item = CartItem(
+            cart_id=cart.id,
+            product_id=product.id,
+            quantity=quantity,
+            price=product.price
+        )
+        db.session.add(item)
+
+    db.session.commit()
+    return stats_cart_db(cart)
 
 
 # recommend
@@ -893,7 +978,9 @@ def get_coupon_create_dependencies():
     products = Product.query.filter_by(active=True) \
         .order_by(Product.stock_quantity.desc(), Product.name.asc()) \
         .all()
-    return categories, products
+
+    coupon_types = CouponType.query.order_by(CouponType.name.asc()).all()
+    return categories, products, coupon_types
 
 
 def parse_float_field(value, field_name, default=0):
@@ -1324,3 +1411,374 @@ def get_orders_by_user(user):
         .all()
 
     return orders
+
+
+# dashboard
+def get_admin_dashboard_stats():
+    now = datetime.now()
+
+    def month_key(offset):
+        month_index = now.month - 1 + offset
+        year = now.year + month_index // 12
+        month = month_index % 12 + 1
+        return f"{year}-{month:02d}"
+
+    month_keys = [month_key(i) for i in range(-5, 1)]
+
+    revenue_rows = db.session.query(
+        func.date_format(Order.created_at, "%Y-%m").label("month"),
+        func.sum(Order.final_amount).label("revenue"),
+        func.count(Order.id).label("orders")
+    ).filter(
+        Order.status == "completed"
+    ).group_by("month").all()
+
+    revenue_map = {
+        row.month: {
+            "revenue": float(row.revenue or 0),
+            "orders": int(row.orders or 0)
+        }
+        for row in revenue_rows
+    }
+
+    top_products = db.session.query(
+        Product.name.label("name"),
+        func.sum(OrderItem.quantity).label("sold_quantity"),
+        func.sum(OrderItem.quantity * OrderItem.price).label("revenue")
+    ).join(
+        OrderItem, Product.id == OrderItem.product_id
+    ).join(
+        Order, Order.id == OrderItem.order_id
+    ).filter(
+        Order.status == "completed"
+    ).group_by(
+        Product.id, Product.name
+    ).order_by(
+        desc("revenue")
+    ).limit(5).all()
+
+    return {
+        "total_revenue": db.session.query(func.sum(Order.final_amount)).filter(
+            Order.status == "completed").scalar() or 0,
+        "total_orders": Order.query.filter_by(status="completed").count(),
+        "total_products": Product.query.count(),
+        "active_products": Product.query.filter_by(active=True).count(),
+        "total_stock": db.session.query(func.sum(Product.stock_quantity)).scalar() or 0,
+        "chart_labels": month_keys,
+        "chart_revenue": [revenue_map.get(m, {}).get("revenue", 0) for m in month_keys],
+        "chart_orders": [revenue_map.get(m, {}).get("orders", 0) for m in month_keys],
+        "top_products": top_products,
+        "product_labels": [p.name for p in top_products],
+        "product_revenue": [float(p.revenue or 0) for p in top_products],
+        "product_sold": [int(p.sold_quantity or 0) for p in top_products],
+    }
+
+
+# user admin
+def query_users_for_admin(search=None):
+    query = User.query
+
+    search = (search or "").strip()
+    if search:
+        keyword = f"%{search}%"
+        query = query.filter(
+            (User.name.ilike(keyword)) |
+            (User.username.ilike(keyword)) |
+            (User.email.ilike(keyword)) |
+            (User.phone.ilike(keyword))
+        )
+
+    return query.order_by(User.id.desc())
+
+
+# category admin
+def query_categories_for_admin(search=None):
+    query = Category.query
+
+    search = (search or "").strip()
+    if search:
+        keyword = f"%{search}%"
+        query = query.filter(Category.name.ilike(keyword))
+
+    return query.order_by(Category.id.desc()).all()
+
+
+def save_category_from_form(category_id, name, description, active):
+    name = (name or "").strip()
+    description = (description or "").strip()
+
+    if not name:
+        raise ValueError("Vui lòng nhập tên danh mục.")
+
+    if category_id:
+        category = Category.query.get_or_404(category_id)
+        category.name = name
+        category.description = description
+        category.active = active
+    else:
+        category = Category(
+            name=name,
+            description=description,
+            active=active
+        )
+        db.session.add(category)
+
+    db.session.commit()
+    return category
+
+
+def delete_category_by_id(category_id):
+    category = Category.query.get_or_404(category_id)
+
+    if category.products:
+        category.active = False
+        db.session.commit()
+        return "soft_delete"
+
+    db.session.delete(category)
+    db.session.commit()
+    return "hard_delete"
+
+
+# product admin
+
+# up ảnh
+def save_product_images(image_files):
+    allowed_exts = {"png", "jpg", "jpeg", "webp"}
+    saved_images = []
+
+    for image_file in image_files:
+        if image_file and image_file.filename:
+            filename = secure_filename(image_file.filename)
+            ext = filename.rsplit(".", 1)[-1].lower()
+
+            if ext not in allowed_exts:
+                raise ValueError("Chỉ được tải lên file ảnh PNG, JPG, JPEG hoặc WEBP.")
+
+            upload_dir = os.path.join(app.root_path, "static", "uploads", "products")
+            os.makedirs(upload_dir, exist_ok=True)
+
+            new_filename = f"{uuid.uuid4().hex}.{ext}"
+            save_path = os.path.join(upload_dir, new_filename)
+
+            image_file.save(save_path)
+
+            saved_images.append(
+                url_for(
+                    "static",
+                    filename=f"uploads/products/{new_filename}"
+                )
+            )
+
+    return saved_images
+
+
+# query
+def query_products_for_admin(search=None,
+                             category_id=None,
+                             price_sort=None,
+                             stock_sort=None):
+    query = Product.query
+
+    search = (search or "").strip()
+
+    if search:
+        keyword = f"%{search}%"
+        query = query.filter(Product.name.ilike(keyword))
+
+    if category_id:
+        query = query.filter(Product.cate_id == category_id)
+
+    if price_sort == "asc":
+        query = query.order_by(Product.price.asc())
+
+    elif price_sort == "desc":
+        query = query.order_by(Product.price.desc())
+
+    elif stock_sort == "asc":
+        query = query.order_by(Product.stock_quantity.asc())
+
+    elif stock_sort == "desc":
+        query = query.order_by(Product.stock_quantity.desc())
+
+    else:
+        query = query.order_by(Product.id.desc())
+
+    return query
+
+
+# create
+def create_product_from_form(form, files):
+    saved_images = save_product_images(
+        files.getlist("image_files")
+    )
+
+    description = (form.get("description") or "").strip()
+    origin = (form.get("origin") or "").strip()
+    warranty = (form.get("warranty") or "").strip()
+
+    if not description:
+        raise ValueError("Vui lòng nhập mô tả sản phẩm.")
+
+    if not origin:
+        raise ValueError("Vui lòng nhập xuất xứ sản phẩm.")
+
+    if not warranty:
+        raise ValueError("Vui lòng nhập thông tin bảo hành.")
+
+    product = Product(
+        name=form.get("name"),
+        price=float(form.get("price") or 0),
+        stock_quantity=int(form.get("stock_quantity") or 0),
+        cate_id=int(form.get("cate_id")),
+        image=saved_images[0] if saved_images else None,
+        active=bool(form.get("active"))
+    )
+
+    db.session.add(product)
+    db.session.flush()
+
+    for index, img in enumerate(saved_images):
+        db.session.add(ProductImage(
+            product_id=product.id,
+            image=img,
+            is_main=(index == 0)
+        ))
+
+    detail = ProductDetail(
+        product_id=product.id,
+        description=description,
+        origin=origin,
+        warranty=warranty
+    )
+
+    db.session.add(detail)
+
+    db.session.commit()
+
+    return product
+
+
+# edit
+def update_product_from_form(product, form, files):
+    product.name = form.get("name")
+    product.price = float(form.get("price") or 0)
+    product.stock_quantity = int(form.get("stock_quantity") or 0)
+    product.cate_id = int(form.get("cate_id"))
+    product.active = bool(form.get("active"))
+
+    description = (form.get("description") or "").strip()
+    origin = (form.get("origin") or "").strip()
+    warranty = (form.get("warranty") or "").strip()
+
+    if not description:
+        raise ValueError("Vui lòng nhập mô tả sản phẩm.")
+
+    if not origin:
+        raise ValueError("Vui lòng nhập xuất xứ sản phẩm.")
+
+    if not warranty:
+        raise ValueError("Vui lòng nhập thông tin bảo hành.")
+
+    detail = product.product_detail
+
+    if not detail:
+        detail = ProductDetail(product_id=product.id)
+        db.session.add(detail)
+
+    detail.description = description
+    detail.origin = origin
+    detail.warranty = warranty
+
+    remove_ids = form.getlist("remove_image_ids")
+
+    if remove_ids:
+        ProductImage.query.filter(
+            ProductImage.product_id == product.id,
+            ProductImage.id.in_(remove_ids)
+        ).delete(synchronize_session=False)
+
+    saved_images = save_product_images(
+        files.getlist("image_files")
+    )
+
+    for img in saved_images:
+        db.session.add(ProductImage(
+            product_id=product.id,
+            image=img,
+            is_main=False
+        ))
+
+    db.session.flush()
+
+    images = ProductImage.query.filter_by(
+        product_id=product.id
+    ).order_by(ProductImage.id.asc()).all()
+
+    for index, img in enumerate(images):
+        img.is_main = (index == 0)
+
+    product.image = images[0].image if images else None
+
+    db.session.commit()
+
+    return product
+
+
+# delete
+def delete_product_by_id(product_id):
+    product = Product.query.get_or_404(product_id)
+
+    has_order = OrderItem.query.filter_by(product_id=product.id).first()
+    has_cart = CartItem.query.filter_by(product_id=product.id).first()
+
+    if has_order or has_cart:
+        product.active = False
+        db.session.commit()
+        return "soft_delete"
+
+    CouponProduct.query.filter_by(
+        product_id=product.id
+    ).delete(synchronize_session=False)
+
+    ProductImage.query.filter_by(
+        product_id=product.id
+    ).delete(synchronize_session=False)
+
+    ProductDetail.query.filter_by(
+        product_id=product.id
+    ).delete(synchronize_session=False)
+
+    db.session.delete(product)
+
+    db.session.commit()
+
+    return "hard_delete"
+
+
+def paginate_list(items, page=1, page_size=None):
+    page = int(page or 1)
+
+    if page < 1:
+        page = 1
+
+    page_size = page_size or app.config["PAGE_SIZE"]
+
+    total = len(items)
+    pages = math.ceil(total / page_size) if total > 0 else 1
+
+    if page > pages:
+        page = pages
+
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    return {
+        "items": items[start:end],
+        "page": page,
+        "pages": pages,
+        "total": total,
+        "page_size": page_size,
+        "has_next": page < pages,
+        "has_prev": page > 1
+    }

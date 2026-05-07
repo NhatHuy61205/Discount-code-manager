@@ -10,7 +10,8 @@ from app.dao import (
     get_my_coupons, save_coupon_for_user, get_used_coupons, get_apply_type_text, get_coupon_condition,
     get_remaining_quantity, get_available_my_coupons_for_cart, validate_selected_coupon_for_cart,
     get_default_address_for_user, get_addresses_by_user, update_user_address, create_order_from_checkout,
-    get_orders_by_user, get_recommended_products
+    get_orders_by_user, get_recommended_products, add_product_to_cart, update_cart_item_quantity,
+    delete_cart_item_by_product
 )
 from app.models import UserRole, Order, CartItem
 
@@ -275,101 +276,52 @@ def apply_coupon_to_cart():
 @app.route('/api/carts', methods=['POST'])
 @login_required
 def add_to_cart():
-    cart = get_or_create_cart(current_user)
-
-    product_id = request.json.get('id')
-    quantity = int(request.json.get('quantity', 1))
-
-    product = get_product_by_id(product_id)
-
-    if quantity <= 0:
-        return jsonify({"error": "Số lượng phải lớn hơn 0"}), 400
-
-    if product.stock_quantity <= 0:
-        return jsonify({"error": "Sản phẩm đã hết hàng"}), 400
-
-    item = None
-    for i in cart.cart_items:
-        if i.product_id == product.id:
-            item = i
-            break
-
-    if item:
-        if item.quantity + quantity > product.stock_quantity:
-            return jsonify({
-                "error": f"Chỉ còn {product.stock_quantity} sản phẩm trong kho"
-            }), 400
-
-        item.quantity += quantity
-    else:
-        if quantity > product.stock_quantity:
-            return jsonify({
-                "error": f"Chỉ còn {product.stock_quantity} sản phẩm trong kho"
-            }), 400
-
-        from app.models import CartItem
-        item = CartItem(
-            cart_id=cart.id,
-            product_id=product.id,
-            quantity=quantity,
-            price=product.price
+    try:
+        data = request.get_json() or {}
+        result = add_product_to_cart(
+            current_user,
+            product_id=data.get("id"),
+            quantity=data.get("quantity", 1)
         )
-        db.session.add(item)
-
-    db.session.commit()
-
-    return jsonify(stats_cart_db(cart))
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Không thể thêm sản phẩm vào giỏ hàng"}), 500
 
 
 @app.route('/api/carts/<int:product_id>', methods=['PUT'])
 @login_required
 def update_cart(product_id):
-    cart = get_or_create_cart(current_user)
-
-    quantity = int(request.json.get("quantity", 1))
-    product = get_product_by_id(product_id)
-
-    if quantity <= 0:
-        return jsonify({"error": "Số lượng phải lớn hơn 0"}), 400
-
-    if quantity > product.stock_quantity:
-        return jsonify({
-            "error": f"Chỉ còn {product.stock_quantity} sản phẩm trong kho"
-        }), 400
-
-    item = None
-    for i in cart.cart_items:
-        if i.product_id == product.id:
-            item = i
-            break
-
-    if not item:
-        return jsonify({"error": "Sản phẩm không có trong giỏ hàng"}), 404
-
-    item.quantity = quantity
-    db.session.commit()
-
-    return jsonify(stats_cart_db(cart))
+    try:
+        data = request.get_json() or {}
+        result = update_cart_item_quantity(
+            current_user,
+            product_id,
+            data.get("quantity", 1)
+        )
+        return jsonify(result)
+    except LookupError as e:
+        return jsonify({"error": str(e)}), 404
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Không thể cập nhật giỏ hàng"}), 500
 
 
 @app.route('/api/carts/<int:product_id>', methods=['DELETE'])
 @login_required
 def delete_cart_item(product_id):
-    cart = get_or_create_cart(current_user)
-
-    item = None
-    for i in cart.cart_items:
-        if i.product_id == product_id:
-            item = i
-            break
-
-    if not item:
-        return jsonify({"error": "Sản phẩm không có trong giỏ hàng"}), 404
-
-    db.session.delete(item)
-    db.session.commit()
-
-    return jsonify(stats_cart_db(cart))
+    try:
+        result = delete_cart_item_by_product(current_user, product_id)
+        return jsonify(result)
+    except LookupError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Không thể xóa sản phẩm khỏi giỏ hàng"}), 500
 
 
 # RECOMMEND

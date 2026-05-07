@@ -21,7 +21,9 @@ from app.models import (
 )
 from app.dao import get_coupon_condition, get_usage_text, query_coupons_for_admin, get_coupon_create_dependencies, \
     create_coupon_from_form, get_coupon_form_data, update_coupon_from_form, delete_coupon_by_id, \
-    validate_user_form_data_for_admin, admin_reset_user_password
+    validate_user_form_data_for_admin, admin_reset_user_password, get_admin_dashboard_stats, paginate_query, \
+    query_users_for_admin, query_categories_for_admin, save_category_from_form, delete_category_by_id, \
+    query_products_for_admin, create_product_from_form, update_product_from_form, delete_product_by_id, paginate_list
 
 
 class AuthenticatedView(ModelView):
@@ -43,92 +45,8 @@ class MyAdminIndexView(AdminIndexView):
 
     @expose("/")
     def index(self):
-        now = datetime.now()
-
-        def month_key(offset):
-            month_index = now.month - 1 + offset
-            year = now.year + month_index // 12
-            month = month_index % 12 + 1
-            return f"{year}-{month:02d}"
-
-        month_keys = [month_key(i) for i in range(-5, 1)]
-
-        revenue_rows = db.session.query(
-            func.date_format(Order.created_at, "%Y-%m").label("month"),
-            func.sum(Order.final_amount).label("revenue"),
-            func.count(Order.id).label("orders")
-        ).filter(
-            Order.status == "completed"
-        ).group_by("month").all()
-
-        revenue_map = {
-            row.month: {
-                "revenue": float(row.revenue or 0),
-                "orders": int(row.orders or 0)
-            }
-            for row in revenue_rows
-        }
-
-        chart_labels = month_keys
-        chart_revenue = [revenue_map.get(m, {}).get("revenue", 0) for m in month_keys]
-        chart_orders = [revenue_map.get(m, {}).get("orders", 0) for m in month_keys]
-
-        total_revenue = db.session.query(
-            func.sum(Order.final_amount)
-        ).filter(
-            Order.status == "completed"
-        ).scalar() or 0
-
-        total_orders = Order.query.filter_by(status="completed").count()
-        total_products = Product.query.count()
-        active_products = Product.query.filter_by(active=True).count()
-        total_stock = db.session.query(func.sum(Product.stock_quantity)).scalar() or 0
-
-        top_products = db.session.query(
-            Product.name.label("name"),
-            func.sum(OrderItem.quantity).label("sold_quantity"),
-            func.sum(OrderItem.quantity * OrderItem.price).label("revenue")
-        ).join(
-            OrderItem, Product.id == OrderItem.product_id
-        ).join(
-            Order, Order.id == OrderItem.order_id
-        ).filter(
-            Order.status == "completed"
-        ).group_by(
-            Product.id, Product.name
-        ).order_by(
-            desc("revenue")
-        ).limit(5).all()
-
-        product_labels = [p.name for p in top_products]
-        product_revenue = [float(p.revenue or 0) for p in top_products]
-        product_sold = [int(p.sold_quantity or 0) for p in top_products]
-
-        return self.render(
-            "admin/index.html",
-            total_revenue=total_revenue,
-            total_orders=total_orders,
-            total_products=total_products,
-            active_products=active_products,
-            total_stock=total_stock,
-            chart_labels=chart_labels,
-            chart_revenue=chart_revenue,
-            chart_orders=chart_orders,
-            top_products=top_products,
-            product_labels=product_labels,
-            product_revenue=product_revenue,
-            product_sold=product_sold
-        )
-
-
-class MyAdminLogoutView(BaseView):
-    @expose("/")
-    def index(self):
-        logout_user()
-        return redirect(url_for("login"))
-
-    def is_accessible(self):
-        return current_user.is_authenticated and current_user.role == UserRole.ADMIN
+        stats = get_admin_dashboard_stats()
+        return self.render("admin/index.html", **stats)
 
 
 class UserAdminView(AuthenticatedView):
@@ -190,48 +108,95 @@ class UserAdminView(AuthenticatedView):
     @expose("/")
     def index_view(self):
         page = request.args.get("page", 1, type=int)
-        per_page = app.config["PAGE_SIZE"]
         search = (request.args.get("search") or "").strip()
 
-        query = User.query
-
-        if search:
-            keyword = f"%{search}%"
-            query = query.filter(
-                (User.name.ilike(keyword)) |
-                (User.username.ilike(keyword)) |
-                (User.email.ilike(keyword)) |
-                (User.phone.ilike(keyword))
-            )
-
-        query = query.order_by(User.id.desc())
-
-        total = query.count()
-        pages = (total + per_page - 1) // per_page if total > 0 else 1
-
-        if page < 1:
-            page = 1
-        if page > pages:
-            page = pages
-
-        users = query.offset((page - 1) * per_page).limit(per_page).all()
+        pagination = paginate_query(
+            query_users_for_admin(search),
+            page=page,
+            page_size=app.config["PAGE_SIZE"]
+        )
 
         return self.render(
             self.list_template,
-            data=users,
-            count=total,
-            current_page=page,
-            pages=pages,
-            has_prev=page > 1,
-            has_next=page < pages,
+            data=pagination["items"],
+            count=pagination["total"],
+            current_page=pagination["page"],
+            pages=pagination["pages"],
+            has_prev=pagination["has_prev"],
+            has_next=pagination["has_next"],
             search=search
         )
 
 
 class CategoryAdminView(AuthenticatedView):
+    list_template = "admin/category/category_manage.html"
+
     column_list = ['id', 'name', 'description', 'active', 'created_date']
     column_searchable_list = ['name']
     column_filters = ['active']
+
+    @expose("/", methods=["GET"])
+    def index_view(self):
+        search = (request.args.get("search") or "").strip()
+        selected_id = request.args.get("id", type=int)
+        mode = request.args.get("mode", "view")
+
+        categories = query_categories_for_admin(search)
+        selected_category = Category.query.get(selected_id) if selected_id else None
+
+        return self.render(
+            self.list_template,
+            categories=categories,
+            selected_category=selected_category,
+            search=search,
+            mode=mode,
+            count=len(categories)
+        )
+
+    @expose("/save/", methods=["POST"])
+    def save_category(self):
+        category_id = request.form.get("id", type=int)
+        name = request.form.get("name")
+        description = request.form.get("description")
+        active = bool(request.form.get("active"))
+
+        try:
+            save_category_from_form(
+                category_id=category_id,
+                name=name,
+                description=description,
+                active=active
+            )
+
+            if category_id:
+                flash("Cập nhật danh mục thành công!", "success")
+            else:
+                flash("Tạo danh mục thành công!", "success")
+
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), "danger")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Không thể lưu danh mục: {e}", "danger")
+
+        return redirect(url_for(".index_view"))
+
+    @expose("/delete/<int:id>", methods=["POST"])
+    def delete_view(self, id):
+        try:
+            result = delete_category_by_id(id)
+
+            if result == "soft_delete":
+                flash("Danh mục đã có sản phẩm nên không xóa cứng. Đã chuyển sang trạng thái ẩn.", "warning")
+            else:
+                flash("Xóa danh mục thành công!", "success")
+
+        except Exception:
+            db.session.rollback()
+            flash("Không thể xóa danh mục này.", "danger")
+
+        return redirect(url_for(".index_view"))
 
 
 class ProductAdminView(AuthenticatedView):
@@ -253,46 +218,30 @@ class ProductAdminView(AuthenticatedView):
         price_sort = (request.args.get("price_sort") or "").strip()
         stock_sort = (request.args.get("stock_sort") or "").strip()
 
-        query = Product.query
+        query = query_products_for_admin(
+            search=search,
+            category_id=category_id,
+            price_sort=price_sort,
+            stock_sort=stock_sort
+        )
 
-        if search:
-            keyword = f"%{search}%"
-            query = query.filter(Product.name.ilike(keyword))
+        pagination = paginate_query(
+            query=query,
+            page=page,
+            page_size=per_page
+        )
 
-        if category_id:
-            query = query.filter(Product.cate_id == category_id)
-
-        if price_sort == "asc":
-            query = query.order_by(Product.price.asc())
-        elif price_sort == "desc":
-            query = query.order_by(Product.price.desc())
-        elif stock_sort == "asc":
-            query = query.order_by(Product.stock_quantity.asc())
-        elif stock_sort == "desc":
-            query = query.order_by(Product.stock_quantity.desc())
-        else:
-            query = query.order_by(Product.id.desc())
-
-        total = query.count()
-        pages = (total + per_page - 1) // per_page if total > 0 else 1
-
-        if page < 1:
-            page = 1
-        if page > pages:
-            page = pages
-
-        products = query.offset((page - 1) * per_page).limit(per_page).all()
         categories = Category.query.order_by(Category.name.asc()).all()
 
         return self.render(
             self.list_template,
-            data=products,
+            data=pagination["items"],
             categories=categories,
-            count=total,
-            current_page=page,
-            pages=pages,
-            has_prev=page > 1,
-            has_next=page < pages,
+            count=pagination["total"],
+            current_page=pagination["page"],
+            pages=pagination["pages"],
+            has_prev=pagination["has_prev"],
+            has_next=pagination["has_next"],
             search=search,
             category_id=category_id,
             price_sort=price_sort,
@@ -301,72 +250,14 @@ class ProductAdminView(AuthenticatedView):
 
     @expose("/new/", methods=["GET", "POST"])
     def create_view(self):
-        categories = Category.query.all()
+        categories = Category.query.order_by(Category.name.asc()).all()
 
         if request.method == "POST":
             try:
-                image_files = request.files.getlist("image_files")
-                saved_images = []
-
-                for image_file in image_files:
-                    if image_file and image_file.filename:
-                        allowed_exts = {"png", "jpg", "jpeg", "webp"}
-                        filename = secure_filename(image_file.filename)
-                        ext = filename.rsplit(".", 1)[-1].lower()
-
-                        if ext not in allowed_exts:
-                            raise ValueError("Chỉ được tải lên file ảnh PNG, JPG, JPEG hoặc WEBP.")
-
-                        upload_dir = os.path.join(app.root_path, "static", "uploads", "products")
-                        os.makedirs(upload_dir, exist_ok=True)
-
-                        new_filename = f"{uuid.uuid4().hex}.{ext}"
-                        save_path = os.path.join(upload_dir, new_filename)
-                        image_file.save(save_path)
-
-                        saved_images.append(url_for("static", filename=f"uploads/products/{new_filename}"))
-
-                description = (request.form.get("description") or "").strip()
-                origin = (request.form.get("origin") or "").strip()
-                warranty = (request.form.get("warranty") or "").strip()
-
-                if not description:
-                    raise ValueError("Vui lòng nhập mô tả sản phẩm.")
-
-                if not origin:
-                    raise ValueError("Vui lòng nhập xuất xứ sản phẩm.")
-
-                if not warranty:
-                    raise ValueError("Vui lòng nhập thông tin bảo hành.")
-                p = Product(
-                    name=request.form.get("name"),
-                    price=float(request.form.get("price") or 0),
-                    stock_quantity=int(request.form.get("stock_quantity") or 0),
-                    cate_id=int(request.form.get("cate_id")),
-                    image=saved_images[0] if saved_images else None,
-                    active=bool(request.form.get("active"))
+                create_product_from_form(
+                    form=request.form,
+                    files=request.files
                 )
-
-                db.session.add(p)
-                db.session.flush()
-
-                for index, img in enumerate(saved_images):
-                    db.session.add(ProductImage(
-                        product_id=p.id,
-                        image=img,
-                        is_main=(index == 0)
-                    ))
-
-                detail = ProductDetail(
-                    product_id=p.id,
-                    description=(request.form.get("description") or "").strip(),
-                    origin=(request.form.get("origin") or "").strip(),
-                    warranty=(request.form.get("warranty") or "").strip()
-                )
-
-                db.session.add(detail)
-
-                db.session.commit()
 
                 flash("Tạo sản phẩm thành công!", "success")
                 return redirect(url_for(".index_view"))
@@ -374,6 +265,7 @@ class ProductAdminView(AuthenticatedView):
             except ValueError as e:
                 db.session.rollback()
                 flash(str(e), "danger")
+
             except Exception as e:
                 db.session.rollback()
                 flash(f"Lỗi: {e}", "danger")
@@ -386,92 +278,23 @@ class ProductAdminView(AuthenticatedView):
     @expose("/edit/<int:id>", methods=["GET", "POST"])
     def edit_view(self, id):
         product = Product.query.get_or_404(id)
-        categories = Category.query.all()
+        categories = Category.query.order_by(Category.name.asc()).all()
 
         if request.method == "POST":
             try:
-                product.name = request.form.get("name")
-                product.price = float(request.form.get("price") or 0)
-                product.stock_quantity = int(request.form.get("stock_quantity") or 0)
-                product.cate_id = int(request.form.get("cate_id"))
-                product.active = bool(request.form.get("active"))
-                description = (request.form.get("description") or "").strip()
-                origin = (request.form.get("origin") or "").strip()
-                warranty = (request.form.get("warranty") or "").strip()
+                update_product_from_form(
+                    product=product,
+                    form=request.form,
+                    files=request.files
+                )
 
-                if not description:
-                    raise ValueError("Vui lòng nhập mô tả sản phẩm.")
-
-                if not origin:
-                    raise ValueError("Vui lòng nhập xuất xứ sản phẩm.")
-
-                if not warranty:
-                    raise ValueError("Vui lòng nhập thông tin bảo hành.")
-
-                detail = product.product_detail
-
-                if not detail:
-                    detail = ProductDetail(product_id=product.id)
-                    db.session.add(detail)
-
-                detail.description = description
-                detail.origin = origin
-                detail.warranty = warranty
-
-                allowed_exts = {"png", "jpg", "jpeg", "webp"}
-
-                remove_ids = request.form.getlist("remove_image_ids")
-
-                if remove_ids:
-                    ProductImage.query.filter(
-                        ProductImage.product_id == product.id,
-                        ProductImage.id.in_(remove_ids)
-                    ).delete(synchronize_session=False)
-
-                # 2. Upload thêm
-                image_files = request.files.getlist("image_files")
-
-                for image_file in image_files:
-                    if image_file and image_file.filename:
-                        filename = secure_filename(image_file.filename)
-                        ext = filename.rsplit(".", 1)[-1].lower()
-
-                        if ext not in allowed_exts:
-                            raise ValueError("Chỉ được tải lên file ảnh PNG, JPG, JPEG hoặc WEBP.")
-
-                        upload_dir = os.path.join(app.root_path, "static", "uploads", "products")
-                        os.makedirs(upload_dir, exist_ok=True)
-
-                        new_filename = f"{uuid.uuid4().hex}.{ext}"
-                        save_path = os.path.join(upload_dir, new_filename)
-                        image_file.save(save_path)
-
-                        image_path = url_for("static", filename=f"uploads/products/{new_filename}")
-
-                        db.session.add(ProductImage(
-                            product_id=product.id,
-                            image=image_path,
-                            is_main=False
-                        ))
-
-                db.session.flush()
-
-                images = ProductImage.query.filter_by(
-                    product_id=product.id
-                ).order_by(ProductImage.id.asc()).all()
-
-                for index, img in enumerate(images):
-                    img.is_main = (index == 0)
-
-                product.image = images[0].image if images else None
-
-                db.session.commit()
                 flash("Cập nhật sản phẩm thành công!", "success")
                 return redirect(url_for(".index_view"))
 
             except ValueError as e:
                 db.session.rollback()
                 flash(str(e), "danger")
+
             except Exception as e:
                 db.session.rollback()
                 flash(f"Lỗi: {e}", "danger")
@@ -484,37 +307,22 @@ class ProductAdminView(AuthenticatedView):
 
     @expose("/delete/<int:id>", methods=["POST"])
     def delete_view(self, id):
-        product = Product.query.get_or_404(id)
-
         try:
-            has_order = OrderItem.query.filter_by(product_id=product.id).first()
-            has_cart = CartItem.query.filter_by(product_id=product.id).first()
+            result = delete_product_by_id(id)
 
-            if has_order or has_cart:
-                product.active = False
-                db.session.commit()
-                flash("Sản phẩm đã phát sinh dữ liệu nên không xóa cứng. Đã chuyển sang trạng thái ẩn.", "warning")
-                return redirect(url_for(".index_view"))
-
-            CouponProduct.query.filter_by(product_id=product.id).delete(synchronize_session=False)
-            ProductImage.query.filter_by(product_id=product.id).delete(synchronize_session=False)
-            ProductDetail.query.filter_by(product_id=product.id).delete(synchronize_session=False)
-
-            db.session.delete(product)
-            db.session.commit()
-
-            flash("Xóa sản phẩm thành công!", "success")
-
+            if result == "soft_delete":
+                flash(
+                    "Sản phẩm đã phát sinh dữ liệu nên không xóa cứng. Đã chuyển sang trạng thái ẩn.",
+                    "warning"
+                )
+            else:
+                flash("Xóa sản phẩm thành công!", "success")
 
         except Exception:
             db.session.rollback()
             flash("Không thể xóa sản phẩm!", "danger")
 
         return redirect(url_for(".index_view"))
-
-
-class ProductDetailAdminView(AuthenticatedView):
-    column_list = ['id', 'product', 'origin', 'warranty']
 
 
 class CouponAdminView(AuthenticatedView):
@@ -548,29 +356,23 @@ class CouponAdminView(AuthenticatedView):
 
         all_coupons = query_coupons_for_admin(request.args)
 
-        total = len(all_coupons)
-        pages = (total + per_page - 1) // per_page if total > 0 else 1
-
-        if page < 1:
-            page = 1
-        if page > pages:
-            page = pages
-
-        start = (page - 1) * per_page
-        end = start + per_page
-        coupons = all_coupons[start:end]
+        pagination = paginate_list(
+            items=all_coupons,
+            page=page,
+            page_size=per_page
+        )
 
         return self.render(
             self.list_template,
-            coupons=coupons,
-            page=page,
-            current_page=page,
+            coupons=pagination["items"],
+            page=pagination["page"],
+            current_page=pagination["page"],
             per_page=per_page,
-            total=total,
-            count=total,
-            pages=pages,
-            has_prev=page > 1,
-            has_next=page < pages,
+            total=pagination["total"],
+            count=pagination["total"],
+            pages=pagination["pages"],
+            has_prev=pagination["has_prev"],
+            has_next=pagination["has_next"],
             q=request.args.get("q", ""),
             apply_type=request.args.get("apply_type", ""),
             condition=request.args.get("condition", ""),
@@ -588,16 +390,19 @@ class CouponAdminView(AuthenticatedView):
 
     @expose("/new/", methods=["GET", "POST"])
     def create_view(self):
-        categories, products = get_coupon_create_dependencies()
+        categories, products, coupon_types = get_coupon_create_dependencies()
 
         if request.method == "POST":
             try:
                 create_coupon_from_form(request.form)
+
                 flash("Tạo mã giảm giá thành công!", "success")
                 return redirect(url_for(".index_view"))
+
             except ValueError as e:
                 db.session.rollback()
                 flash(str(e), "danger")
+
             except Exception as e:
                 db.session.rollback()
                 flash(f"Có lỗi xảy ra khi tạo mã: {e}", "danger")
@@ -605,7 +410,8 @@ class CouponAdminView(AuthenticatedView):
         return self.render(
             self.create_template,
             categories=categories,
-            products=products
+            products=products,
+            coupon_types=coupon_types
         )
 
     @expose("/edit/<int:coupon_id>", methods=["GET", "POST"])
@@ -617,20 +423,25 @@ class CouponAdminView(AuthenticatedView):
 
             try:
                 update_coupon_from_form(coupon, form_data)
+
                 flash("Thay đổi mã giảm giá thành công!", "success")
                 return redirect(url_for(".index_view"))
+
             except ValueError as e:
                 db.session.rollback()
                 flash(str(e), "danger")
+
                 return self.render(
                     self.edit_template,
                     model=coupon,
                     form_data=form_data,
                     can_edit_start_date=(coupon.start_date and coupon.start_date > datetime.now())
                 )
+
             except Exception as e:
                 db.session.rollback()
                 flash(f"Có lỗi xảy ra khi cập nhật mã: {e}", "danger")
+
                 return self.render(
                     self.edit_template,
                     model=coupon,
@@ -650,23 +461,16 @@ class CouponAdminView(AuthenticatedView):
         try:
             delete_coupon_by_id(coupon_id)
             flash("Xóa mã giảm giá thành công!", "success")
+
         except ValueError as e:
             db.session.rollback()
             flash(str(e), "danger")
+
         except Exception:
             db.session.rollback()
             flash("Không thể xóa mã giảm giá này!", "danger")
 
         return redirect(url_for(".index_view"))
-
-
-class OrderAdminView(AuthenticatedView):
-    column_list = [
-        'id', 'user', 'coupon',
-        'total_amount', 'discount_amount', 'final_amount',
-        'status', 'created_at'
-    ]
-    column_filters = ['status', 'created_at']
 
 
 admin = Admin(
@@ -679,14 +483,4 @@ admin = Admin(
 admin.add_view(UserAdminView(User, db.session, name="Người dùng"))
 admin.add_view(CategoryAdminView(Category, db.session, name="Danh mục"))
 admin.add_view(ProductAdminView(Product, db.session, name="Sản phẩm"))
-admin.add_view(ProductDetailAdminView(ProductDetail, db.session, name="Chi tiết sản phẩm"))
-admin.add_view(AuthenticatedView(Cart, db.session, name="Giỏ hàng"))
-admin.add_view(AuthenticatedView(CartItem, db.session, name="Chi tiết giỏ hàng"))
-admin.add_view(AuthenticatedView(CouponType, db.session, name="Loại mã giảm giá"))
 admin.add_view(CouponAdminView(Coupon, db.session, name="Mã giảm giá"))
-admin.add_view(AuthenticatedView(CouponCategory, db.session, name="Mã - danh mục"))
-admin.add_view(AuthenticatedView(CouponProduct, db.session, name="Mã - sản phẩm"))
-admin.add_view(AuthenticatedView(UserCoupon, db.session, name="Mã của user"))
-admin.add_view(OrderAdminView(Order, db.session, name="Đơn hàng"))
-admin.add_view(AuthenticatedView(OrderItem, db.session, name="Chi tiết đơn hàng"))
-admin.add_view(MyAdminLogoutView(name="Đăng xuất", endpoint="admin_logout"))

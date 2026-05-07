@@ -1,4 +1,8 @@
 <div id="sidebar" class="sidebar">
+    <a href="/admin/" class="{% if request.path == '/admin/' or request.path == '/admin' %}active{% endif %}">
+        <i class="bi bi-house-door"></i>
+        <span>Trang chủ</span>
+    </a>
     <a href="/admin/user/" class="{% if request.path.startswith('/admin/user/') %}active{% endif %}">
         <i class="bi bi-people"></i>
         <span>Người dùng</span>

@@ -1,0 +1,232 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="coupon-create-page">
+
+    {% with messages = get_flashed_messages(with_categories=true, category_filter=['danger']) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-danger mb-3">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <form method="post" enctype="multipart/form-data" class="coupon-create-form">
+
+        <div class="coupon-create-card">
+            <h3 class="coupon-create-title">Cập nhật sản phẩm</h3>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Tên sản phẩm</label>
+                <input type="text" name="name"
+                       value="{{ request.form.get('name', product.name) }}"
+                       class="form-control coupon-create-input"
+                       required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Giá</label>
+                <input type="number" name="price"
+                       value="{{ request.form.get('price', product.price) }}"
+                       class="form-control coupon-create-input"
+                       required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Tồn kho</label>
+                <input type="number" name="stock_quantity"
+                       value="{{ request.form.get('stock_quantity', product.stock_quantity) }}"
+                       class="form-control coupon-create-input"
+                       required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Danh mục</label>
+                <select name="cate_id" class="form-control coupon-create-input">
+                    {% for c in categories %}
+                    <option value="{{ c.id }}" {% if product.cate_id== c.id %}selected{% endif %}>
+                        {{ c.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <h3 class="coupon-create-title">Chi tiết sản phẩm</h3>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Mô tả sản phẩm</label>
+                <textarea name="description"
+                          class="form-control coupon-create-input"
+                          rows="4"
+                          required>{{ request.form.get('description', product.product_detail.description if product.product_detail else '') }}</textarea>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Xuất xứ</label>
+                <input type="text"
+                       name="origin"
+                       value="{{ request.form.get('origin', product.product_detail.origin if product.product_detail else '') }}"
+                       class="form-control coupon-create-input"
+                       required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Bảo hành</label>
+                <input type="text"
+                       name="warranty"
+                       value="{{ request.form.get('warranty', product.product_detail.warranty if product.product_detail else '') }}"
+                       class="form-control coupon-create-input"
+                       required>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-create-label">Ảnh sản phẩm</label>
+
+                {% if product.images %}
+                <div class="product-image-preview-list mt-2 mb-3">
+                    {% for img in product.images %}
+                    <div class="product-image-preview-item existing-image-item">
+                        <div class="product-image-preview-img-wrap">
+                            <img src="{{ img.image }}" alt="Ảnh sản phẩm">
+
+                            {% if img.is_main %}
+                            <span class="product-main-badge">Ảnh chính</span>
+                            {% endif %}
+                        </div>
+
+                        <button type="button"
+                                class="product-remove-image-btn existing-remove-btn"
+                                data-image-id="{{ img.id }}">
+                            ✕
+                        </button>
+
+                        <input type="checkbox"
+                               name="remove_image_ids"
+                               value="{{ img.id }}"
+                               class="remove-image-checkbox d-none">
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-muted mb-3">Chưa có ảnh</div>
+                {% endif %}
+
+                <input type="file"
+                       id="productImageInput"
+                       name="image_files"
+                       class="form-control coupon-create-input"
+                       accept="image/png, image/jpeg, image/jpg, image/webp"
+                       multiple>
+
+                <small class="text-muted">
+                    Có thể thêm nhiều ảnh mới. Ảnh đầu tiên còn lại sẽ là ảnh chính.
+                </small>
+
+                <div id="productImagePreview" class="product-image-preview-list mt-3"></div>
+            </div>
+
+            <div class="coupon-create-group">
+                <label class="coupon-checkbox-item">
+                    <input type="checkbox" name="active" value="1" {% if product.active %}checked{% endif %}>
+                    <span>Đang bán</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="coupon-create-actions">
+            <a href="{{ get_url('.index_view') }}" class="btn btn-light me-2">
+                Quay lại
+            </a>
+
+            <button type="submit" class="btn btn-danger coupon-submit-btn">
+                Lưu thay đổi
+            </button>
+        </div>
+
+    </form>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const input = document.getElementById("productImageInput");
+        const preview = document.getElementById("productImagePreview");
+
+        let selectedFiles = [];
+
+        function syncInputFiles() {
+            const dataTransfer = new DataTransfer();
+
+            selectedFiles.forEach(file => {
+                dataTransfer.items.add(file);
+            });
+
+            input.files = dataTransfer.files;
+        }
+
+        function renderPreview() {
+            if (!preview) return;
+
+            preview.innerHTML = "";
+
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const item = document.createElement("div");
+                    item.className = "product-image-preview-item";
+
+                    item.innerHTML = `
+                        <div class="product-image-preview-img-wrap">
+                            <img src="${e.target.result}" alt="Ảnh sản phẩm mới">
+                        </div>
+
+                        <button type="button" class="product-remove-image-btn new-remove-btn" data-index="${index}">
+                            ✕
+                        </button>
+                    `;
+
+                    preview.appendChild(item);
+                };
+
+                reader.readAsDataURL(file);
+            });
+        }
+
+        if (input && preview) {
+            input.addEventListener("change", function () {
+                const newFiles = Array.from(input.files);
+
+                newFiles.forEach(file => {
+                    if (!file.type.startsWith("image/")) {
+                        alert("Chỉ được chọn file ảnh.");
+                        return;
+                    }
+
+                    selectedFiles.push(file);
+                });
+
+                syncInputFiles();
+                renderPreview();
+            });
+
+            preview.addEventListener("click", function (e) {
+                if (!e.target.classList.contains("new-remove-btn")) return;
+
+                const index = parseInt(e.target.dataset.index, 10);
+                selectedFiles.splice(index, 1);
+
+                syncInputFiles();
+                renderPreview();
+            });
+        }
+
+        document.querySelectorAll(".existing-remove-btn").forEach(btn => {
+            btn.addEventListener("click", function () {
+                const item = this.closest(".existing-image-item");
+                const checkbox = item.querySelector(".remove-image-checkbox");
+
+                checkbox.checked = true;
+                item.style.display = "none";
+            });
+        });
+    });
+</script>
+{% endblock %}

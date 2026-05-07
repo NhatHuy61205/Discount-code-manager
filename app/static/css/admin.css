@@ -12,7 +12,7 @@ body {
 }
 
 .admin-navbar {
-    position: sticky;
+    position: fixed;
     top: 0;
     z-index: 1050;
     width: 100%;
@@ -335,6 +335,7 @@ body {
 }
 .admin-shell {
     overflow-x: hidden;
+    padding-top: 78px;
 }
 
 /*Coupon */
@@ -1315,4 +1316,115 @@ input[type="checkbox"] {
 
 .user-reset-password-btn:hover {
     background: #1e293b;
+}
+
+
+
+.product-create-page input,
+.product-create-page select,
+.product-create-page textarea {
+    border-radius: 10px;
+}
+.product-create-page .form-group {
+    margin-bottom: 18px;
+}
+
+.product-image-preview-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.product-image-preview-item {
+    width: 130px;
+}
+
+.product-image-preview-img-wrap {
+    position: relative;
+    width: 130px;
+    height: 130px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+.product-image-preview-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-main-badge {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 999px;
+}
+
+.product-remove-image-btn {
+    margin-top: 8px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.product-remove-image-btn:hover {
+    background: #dc2626;
+}
+
+.product-image-preview-item {
+    width: 120px;
+    text-align: center;
+}
+
+.product-image-preview-img-wrap {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.product-remove-image-btn {
+    margin-top: 6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #ef4444;
+    color: white;
+    border: none;
+    font-weight: bold;
+}
+
+.dashboard-product-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.dashboard-product-row:last-child {
+    border-bottom: none;
+}
+
+.dashboard-product-name {
+    font-weight: 800;
+    color: #0f172a;
 }

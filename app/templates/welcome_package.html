@@ -1,0 +1,69 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Gợi ý mua sắm{% endblock %}
+
+{% block content %}
+<section class="welcome-package-page">
+    <div class="welcome-package-hero">
+        <div class="welcome-package-content">
+            <span class="welcome-badge">
+                <i class="bi bi-search-heart"></i>
+                Bạn chưa nhập từ khóa
+            </span>
+
+            <h1>Hôm nay bạn muốn tìm gì?</h1>
+
+            <p>
+                Hãy nhập tên sản phẩm, ngành hàng hoặc từ khóa bạn quan tâm để Discount Shop
+                giúp bạn tìm đúng món cần mua nhanh hơn.
+            </p>
+
+            <form class="welcome-search-form"
+                  method="GET"
+                  action="{{ url_for('search_products') }}">
+                <input
+                        type="search"
+                        name="keyword"
+                        class="form-control"
+                        placeholder="Ví dụ: ốp lưng, tai nghe, mỹ phẩm..."
+                        autofocus
+                >
+                <button type="submit" class="btn btn-danger">
+                    Tìm sản phẩm
+                </button>
+            </form>
+
+            <div class="welcome-actions">
+                <a href="{{ url_for('index') }}#products" class="welcome-link-primary">
+                    Xem sản phẩm nổi bật
+                </a>
+
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('coupon_page') }}" class="welcome-link-secondary">
+                    Xem mã giảm giá
+                </a>
+                {% else %}
+                <a href="{{ url_for('login') }}" class="welcome-link-secondary">
+                    Đăng nhập để lưu mã
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="welcome-package-card">
+            <div class="welcome-icon-circle">
+                <i class="bi bi-bag-heart"></i>
+            </div>
+
+            <h4>Gợi ý cho bạn</h4>
+
+            <div class="welcome-suggest-list">
+                <a href="{{ url_for('search_products', keyword='ốp lưng') }}">Ốp lưng</a>
+                <a href="{{ url_for('search_products', keyword='tai nghe') }}">Tai nghe</a>
+                <a href="{{ url_for('search_products', keyword='sản phẩm') }}">Sản phẩm mới</a>
+                <a href="{{ url_for('recommend') }}">Có thể bạn thích</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

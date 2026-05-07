@@ -7,10 +7,40 @@
 
     <!-- LEFT: IMAGE -->
     <div class="col-md-6">
-        <div class="bg-white p-3 rounded shadow-sm">
-            <img src="{{ product.image }}"
-                 class="img-fluid rounded"
-                 alt="{{ product.name }}">
+        <div class="product-detail-gallery">
+
+            {% set product_images = product.images if product.images else [] %}
+
+            <div class="product-main-image-wrap">
+                <button type="button" class="product-gallery-arrow product-gallery-prev">
+                    ‹
+                </button>
+
+                <img
+                        id="main-product-image"
+                        src="{{ product.image if product.image else 'https://via.placeholder.com/600x600?text=No+Image' }}"
+                        class="product-main-image"
+                        alt="{{ product.name }}"
+                >
+
+                <button type="button" class="product-gallery-arrow product-gallery-next">
+                    ›
+                </button>
+            </div>
+
+            {% if product_images|length > 1 %}
+            <div class="product-thumb-list">
+                {% for img in product_images %}
+                <img
+                        src="{{ img.image }}"
+                        class="product-thumb {% if loop.first %}active{% endif %}"
+                        data-index="{{ loop.index0 }}"
+                        alt="{{ product.name }}"
+                >
+                {% endfor %}
+            </div>
+            {% endif %}
+
         </div>
     </div>
 
@@ -34,14 +64,14 @@
             </div>
         </div>
         {% endif %}
-      <!-- WARRANTY -->
-{% if product.product_detail and product.product_detail.warranty %}
-<div class="mb-3 p-3 border rounded bg-light">
-    <div class="fw-semibold text-dark">
-         An tâm mua sắm: Bảo hành {{ product.product_detail.warranty }}
-    </div>
-</div>
-{% endif %}
+        <!-- WARRANTY -->
+        {% if product.product_detail and product.product_detail.warranty %}
+        <div class="mb-3 p-3 border rounded bg-light">
+            <div class="fw-semibold text-dark">
+                An tâm mua sắm: Bảo hành {{ product.product_detail.warranty }}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- DESCRIPTION -->
         <p class="text-muted">
@@ -49,70 +79,68 @@
         </p>
 
         <!-- STOCK -->
-<div class="mb-2">
-    <span class="fw-semibold">Số lượng:</span>
-</div>
+        <div class="mb-2">
+            <span class="fw-semibold">Số lượng:</span>
+        </div>
 
-<div class="d-flex align-items-center gap-3 flex-wrap mb-2">
-    <div class="qty-box">
-        <button type="button" class="qty-btn" id="qty-decrease">−</button>
+        <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+            <div class="qty-box">
+                <button type="button" class="qty-btn" id="qty-decrease">−</button>
 
-        <input
-            id="qty"
-            type="number"
-            value="1"
-            min="1"
-            max="{{ product.stock_quantity }}"
-            class="qty-input"
-            inputmode="numeric"
-        >
+                <input
+                        id="qty"
+                        type="number"
+                        value="1"
+                        min="1"
+                        max="{{ product.stock_quantity }}"
+                        class="qty-input"
+                        inputmode="numeric"
+                >
 
-        <button type="button" class="qty-btn" id="qty-increase">+</button>
-    </div>
+                <button type="button" class="qty-btn" id="qty-increase">+</button>
+            </div>
 
-    <span class="stock-text">
+            <span class="stock-text">
         Còn {{ product.stock_quantity }} sản phẩm
     </span>
-</div>
+        </div>
 
-<div id="qty-error" class="text-danger small mb-4 d-none">
-    Số lượng đặt không được vượt quá số lượng tồn kho.
-</div>
-
-
+        <div id="qty-error" class="text-danger small mb-4 d-none">
+            Số lượng đặt không được vượt quá số lượng tồn kho.
+        </div>
 
 
         <!-- BUTTON -->
         <div class="d-flex gap-3">
-    <a href="#" id="add-to-cart-btn" class="btn btn-outline-danger px-4">
-        Thêm vào giỏ hàng
-    </a>
+            <a href="#" id="add-to-cart-btn" class="btn btn-outline-danger px-4">
+                Thêm vào giỏ hàng
+            </a>
 
-    <a href="#" id="buy-now-btn" class="btn btn-danger px-4">
-        Mua ngay
-    </a>
-</div>
+            <a href="#" id="buy-now-btn" class="btn btn-danger px-4">
+                Mua ngay
+            </a>
+        </div>
 
     </div>
 </div>
 
 <script>
-function increase() {
-    let input = document.getElementById("qty");
-    let max = parseInt(input.max);
+    function increase() {
+        let input = document.getElementById("qty");
+        let max = parseInt(input.max);
 
-    if (parseInt(input.value) < max) {
-        input.value++;
+        if (parseInt(input.value) < max) {
+            input.value++;
+        }
     }
-}
 
-function decrease() {
-    let input = document.getElementById("qty");
+    function decrease() {
+        let input = document.getElementById("qty");
 
-    if (parseInt(input.value) > 1) {
-        input.value--;
+        if (parseInt(input.value) > 1) {
+            input.value--;
+        }
     }
-}
 </script>
 <!-- ADD TO CART SUCCESS TOAST -->
 <div id="cart-success-toast" class="cart-success-toast">
@@ -128,4 +156,48 @@ function decrease() {
         </div>
     </div>
 </div>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const mainImage = document.getElementById("main-product-image");
+        const thumbs = Array.from(document.querySelectorAll(".product-thumb"));
+        const prevBtn = document.querySelector(".product-gallery-prev");
+        const nextBtn = document.querySelector(".product-gallery-next");
+
+        if (!mainImage || thumbs.length === 0) return;
+
+        let currentIndex = 0;
+
+        function showImage(index) {
+            if (index < 0) index = thumbs.length - 1;
+            if (index >= thumbs.length) index = 0;
+
+            currentIndex = index;
+            mainImage.src = thumbs[currentIndex].src;
+
+            thumbs.forEach(t => t.classList.remove("active"));
+            thumbs[currentIndex].classList.add("active");
+        }
+
+        thumbs.forEach((thumb, index) => {
+            thumb.addEventListener("mouseenter", function () {
+                showImage(index);
+            });
+        });
+
+        if (prevBtn && nextBtn && thumbs.length > 1) {
+            prevBtn.addEventListener("click", function () {
+                showImage(currentIndex - 1);
+            });
+
+            nextBtn.addEventListener("click", function () {
+                showImage(currentIndex + 1);
+            });
+        }
+
+        if (thumbs.length <= 1) {
+            if (prevBtn) prevBtn.style.display = "none";
+            if (nextBtn) nextBtn.style.display = "none";
+        }
+    });
+</script>
 {% endblock %}

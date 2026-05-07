@@ -46,6 +46,9 @@ def search_products():
     page = request.args.get("page", 1, type=int)
     keyword = request.args.get("keyword", "", type=str).strip()
 
+    if not keyword:
+        return redirect(url_for("welcome_package"))
+
     product_data = get_active_products(page=page, q=keyword)
 
     return render_template(
@@ -58,6 +61,14 @@ def search_products():
         has_prev=product_data["has_prev"],
         keyword=keyword
     )
+
+
+@app.route("/welcome-package")
+def welcome_package():
+    if current_user.is_authenticated and current_user.role == UserRole.ADMIN:
+        return redirect(url_for("admin.index"))
+
+    return render_template("welcome_package.html")
 
 
 @app.route("/api/products")

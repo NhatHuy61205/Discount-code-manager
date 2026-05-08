@@ -323,7 +323,12 @@ def update_cart(product_id):
     except LookupError as e:
         return jsonify({"error": str(e)}), 404
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        product = get_product_by_id(product_id)
+
+        return jsonify({
+            "error": str(e),
+            "max_quantity": product.stock_quantity
+        }), 400
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Không thể cập nhật giỏ hàng"}), 500

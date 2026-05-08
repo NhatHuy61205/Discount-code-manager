@@ -3729,3 +3729,10 @@ nav.navbar {
     line-height: 1;
     padding-left: 4px;
 }
+.cart-product-link {
+    flex: 1;
+}
+
+.cart-product-link:hover h6 {
+    color: #dc3545;
+}

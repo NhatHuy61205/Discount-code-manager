@@ -517,8 +517,20 @@ document.querySelectorAll(".cart-item-row").forEach(row => {
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error || "Không thể cập nhật giỏ hàng");
-            }
+    if (data.max_quantity) {
+        alert(data.error || "Số lượng vượt quá tồn kho");
+
+        updateCartRowUI(row, data.max_quantity);
+        updateCartBadge(data.total_items);
+
+        await refreshSelectedCouponDiscount();
+        updateCartSelectionState();
+
+        return;
+    }
+
+    throw new Error(data.error || "Không thể cập nhật giỏ hàng");
+}
 
             updateCartRowUI(row, newQty);
 updateCartBadge(data.total_items);
@@ -557,6 +569,27 @@ if (!confirmed) return;
             updateQuantity(currentQty + 1);
         });
     }
+    if (qtyInput) {
+    qtyInput.addEventListener("input", function () {
+        this.value = this.value.replace(/[^\d]/g, "");
+    });
+
+    qtyInput.addEventListener("blur", function () {
+        let newQty = parseInt(this.value, 10);
+
+        if (isNaN(newQty) || newQty <= 0) {
+            newQty = 1;
+        }
+
+        updateQuantity(newQty);
+    });
+
+    qtyInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+            this.blur();
+        }
+    });
+}
 
     if (deleteLink) {
         deleteLink.addEventListener("click", async function (e) {

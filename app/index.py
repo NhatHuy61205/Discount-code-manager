@@ -11,7 +11,7 @@ from app.dao import (
     get_remaining_quantity, get_available_my_coupons_for_cart, validate_selected_coupon_for_cart,
     get_default_address_for_user, get_addresses_by_user, update_user_address, create_order_from_checkout,
     get_orders_by_user, get_recommended_products, add_product_to_cart, update_cart_item_quantity,
-    delete_cart_item_by_product
+    delete_cart_item_by_product, get_top_categories_by_product_count
 )
 from app.models import UserRole, Order, CartItem
 
@@ -68,7 +68,12 @@ def welcome_package():
     if current_user.is_authenticated and current_user.role == UserRole.ADMIN:
         return redirect(url_for("admin.index"))
 
-    return render_template("welcome_package.html")
+    categories = get_top_categories_by_product_count(limit=3)
+
+    return render_template(
+        "welcome_package.html",
+        categories=categories
+    )
 
 
 @app.route("/api/products")

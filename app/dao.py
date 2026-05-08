@@ -1503,6 +1503,16 @@ def query_categories_for_admin(search=None):
     return query.order_by(Category.id.desc()).all()
 
 
+def get_top_categories_by_product_count(limit=3):
+    return db.session.query(Category) \
+        .join(Product, Product.cate_id == Category.id) \
+        .filter(Category.active == True, Product.active == True) \
+        .group_by(Category.id) \
+        .order_by(func.count(Product.id).desc()) \
+        .limit(limit) \
+        .all()
+
+
 def save_category_from_form(category_id, name, description, active):
     name = (name or "").strip()
     description = (description or "").strip()

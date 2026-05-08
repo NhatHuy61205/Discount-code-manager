@@ -58,9 +58,12 @@
             <h4>Gợi ý cho bạn</h4>
 
             <div class="welcome-suggest-list">
-                <a href="{{ url_for('search_products', keyword='ốp lưng') }}">Ốp lưng</a>
-                <a href="{{ url_for('search_products', keyword='tai nghe') }}">Tai nghe</a>
-                <a href="{{ url_for('search_products', keyword='sản phẩm') }}">Sản phẩm mới</a>
+                {% for c in categories %}
+                <a href="{{ url_for('search_products', keyword=c.name) }}">
+                    {{ c.name }}
+                </a>
+                {% endfor %}
+
                 <a href="{{ url_for('recommend') }}">Có thể bạn thích</a>
             </div>
         </div>

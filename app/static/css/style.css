@@ -3736,3 +3736,153 @@ nav.navbar {
 .cart-product-link:hover h6 {
     color: #dc3545;
 }
+
+/* =========================
+   HEADER CART DROPDOWN - DISCOUNT SHOP STYLE
+========================= */
+.header-cart-menu {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.header-cart-trigger {
+    position: relative;
+    z-index: 2;
+}
+
+.header-cart-dropdown {
+    position: absolute;
+    top: calc(100% + 14px);
+    right: -18px;
+    width: 460px;
+    background: #fff;
+    border: 1px solid var(--cart-border);
+    border-radius: 18px;
+    box-shadow: 0 16px 36px rgba(220, 53, 69, 0.12);
+    padding: 16px 0 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px);
+    transition: all 0.2s ease;
+    z-index: 3000;
+}
+
+/* vùng đệm để rê chuột không bị mất dropdown */
+.header-cart-dropdown::after {
+    content: "";
+    position: absolute;
+    top: -16px;
+    right: 0;
+    width: 120px;
+    height: 16px;
+}
+
+/* mũi tên đẹp hơn */
+.header-cart-dropdown::before {
+    content: "";
+    position: absolute;
+    top: -9px;
+    right: 36px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-left: 1px solid var(--cart-border);
+    border-top: 1px solid var(--cart-border);
+    transform: rotate(45deg);
+    border-radius: 4px 0 0 0;
+}
+
+.header-cart-menu:hover .header-cart-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.header-cart-dropdown__title {
+    padding: 0 18px 14px;
+    color: var(--cart-text-light);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.header-cart-dropdown__list {
+    max-height: 330px;
+    overflow-y: auto;
+}
+
+.header-cart-dropdown__item {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s ease;
+}
+
+.header-cart-dropdown__item:hover {
+    background: var(--cart-primary-soft-2);
+}
+
+.header-cart-dropdown__img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border: 1px solid var(--cart-border);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.header-cart-dropdown__info {
+    min-width: 0;
+}
+
+.header-cart-dropdown__name {
+    color: var(--cart-text-dark);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.header-cart-dropdown__price {
+    color: var(--cart-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.header-cart-dropdown__footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 14px 16px;
+    border-top: 1px solid var(--cart-border-soft);
+    background: linear-gradient(180deg, #fff 0%, #fff9fa 100%);
+    border-radius: 0 0 18px 18px;
+}
+
+.header-cart-dropdown__view-btn {
+    min-width: 150px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--cart-primary);
+    color: #fff;
+    border-radius: 12px;
+    text-decoration: none;
+    font-size: 0.98rem;
+    font-weight: 700;
+    box-shadow: 0 8px 18px rgba(220, 53, 69, 0.16);
+    transition: all 0.2s ease;
+}
+
+.header-cart-dropdown__view-btn:hover {
+    background: var(--cart-primary-hover);
+    color: #fff;
+    transform: translateY(-1px);
+}

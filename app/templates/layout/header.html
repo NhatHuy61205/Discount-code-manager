@@ -33,7 +33,7 @@
                         class="form-control rounded-pill me-2"
                         type="search"
                         name="keyword"
-                        placeholder="Tìm sản phẩm..."
+                        placeholder="Tìm sản phẩm, danh mục..."
                         value="{{ request.args.get('keyword', '') }}"
                 >
 
@@ -63,9 +63,42 @@
                         <i class="bi bi-cart3"></i>
                         <span id="cart-badge"
                               class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {% if not cart_count %}d-none{% endif %}">
-                            {{ cart_count or 0 }}
-                        </span>
+            {{ cart_count or 0 }}
+        </span>
                     </a>
+
+                    <div class="header-cart-dropdown">
+                        <div class="header-cart-dropdown__title">
+                            Sản Phẩm Mới Thêm
+                        </div>
+
+                        <div class="header-cart-dropdown__list">
+                            {% for item in cart_preview_items %}
+                            <a href="{{ url_for('product_detail', product_id=item.product.id) }}"
+                               class="header-cart-dropdown__item">
+
+                                <img src="{{ item.product.image or 'https://via.placeholder.com/80x80?text=No+Image' }}"
+                                     class="header-cart-dropdown__img">
+
+                                <div class="header-cart-dropdown__info">
+                                    <div class="header-cart-dropdown__name">
+                                        {{ item.product.name }}
+                                    </div>
+                                </div>
+
+                                <div class="header-cart-dropdown__price">
+                                    {{ "{:,.0f}".format(item.price).replace(",", ".") }}đ
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+
+                        <div class="header-cart-dropdown__footer">
+                            <a href="{{ url_for('cart') }}" class="header-cart-dropdown__view-btn">
+                                Xem Giỏ Hàng
+                            </a>
+                        </div>
+                    </div>
                 </div>
                 {% endif %}
 

@@ -167,11 +167,14 @@ def logout():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     err_msg = None
+    form_data = {}
 
     if current_user.is_authenticated:
         return redirect(url_for("index"))
 
     if request.method == "POST":
+        form_data = request.form.to_dict()
+
         try:
             register_user(
                 name=request.form.get("name"),
@@ -186,7 +189,11 @@ def register():
         except Exception as e:
             err_msg = str(e)
 
-    return render_template("register.html", error=err_msg)
+    return render_template(
+        "register.html",
+        error=err_msg,
+        form_data=form_data
+    )
 
 
 @app.route("/product/<int:product_id>")

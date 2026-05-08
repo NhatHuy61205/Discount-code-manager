@@ -13,43 +13,61 @@
                 <form method="POST">
                     <div class="mb-3">
                         <label class="form-label">Tên</label>
-                        <input type="text" name="name" class="form-control rounded-pill" required>
+                        <input type="text" name="name"
+                               value="{{ form_data.get('name', '') }}"
+                               class="form-control rounded-pill {% if error and 'Tên' in error %}is-invalid{% endif %}"
+                               required>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Tên đăng nhập</label>
-                        <input type="text" name="username" class="form-control rounded-pill" required>
+                        <input type="text" name="username"
+                               value="{{ form_data.get('username', '') }}"
+                               class="form-control rounded-pill {% if error and 'Tên đăng nhập' in error %}is-invalid{% endif %}"
+                               required>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control rounded-pill" required>
+                        <input type="email" name="email"
+                               value="{{ form_data.get('email', '') }}"
+                               class="form-control rounded-pill {% if error and 'Email' in error %}is-invalid{% endif %}"
+                               required>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Số điện thoại</label>
-                        <input type="text" name="phone" class="form-control rounded-pill">
+                        <input type="text" name="phone"
+                               value="{{ form_data.get('phone', '') }}"
+                               class="form-control rounded-pill {% if error and 'Số điện thoại' in error %}is-invalid{% endif %}">
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Địa chỉ</label>
-                        <input type="text" name="address" class="form-control rounded-pill" required>
+                        <input type="text" name="address"
+                               value="{{ form_data.get('address', '') }}"
+                               class="form-control rounded-pill {% if error and 'địa chỉ' in error|lower %}is-invalid{% endif %}"
+                               required>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Mật khẩu</label>
-                        <input type="password" name="password" class="form-control rounded-pill" required>
+                        <input type="password" name="password"
+                               class="form-control rounded-pill {% if error and 'Mật khẩu' in error %}is-invalid{% endif %}"
+                               required>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Nhập lại mật khẩu</label>
-                        <input type="password" name="confirm" class="form-control rounded-pill" required>
+                        <input type="password" name="confirm"
+                               class="form-control rounded-pill {% if error and 'khớp' in error %}is-invalid{% endif %}"
+                               required>
                     </div>
 
                     {% if error %}
-                        <div class="alert alert-danger">
-                            {{ error }}
-                        </div>
+                    <div class="alert alert-danger">
+                        {{ error }}
+                    </div>
                     {% endif %}
 
                     <div class="d-grid">

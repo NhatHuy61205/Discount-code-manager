@@ -15,7 +15,7 @@ from app import app, db
 from app import login
 from app.models import User, CouponStatus, CouponCondition, Product, CouponApplyType, DiscountKind, Coupon, Category, \
     CouponCategory, CouponProduct, CouponTargetType, Cart, UserCoupon, UserAddress, Address, OrderItem, Order, \
-    OrderStatus, ProductDetail, CouponType, ProductImage, CartItem
+    OrderStatus, ProductDetail, CouponType, ProductImage, CartItem, UserRole
 
 MAX_DISCOUNT_RATE = 0.5
 
@@ -97,7 +97,7 @@ def validate_user_form_data_for_admin(
 ):
     name = (name or "").strip()
     username = (username or "").strip()
-    email = (email or "").strip()
+    email = (email or "").strip().lower()
     phone = (phone or "").strip()
     address = (address or "").strip()
     password = password or ""
@@ -105,9 +105,10 @@ def validate_user_form_data_for_admin(
     if not all([name, username, email, address]):
         raise ValueError("Vui lòng nhập đầy đủ thông tin")
 
-    if require_password and not password:
-        raise ValueError("Vui lòng nhập mật khẩu")
+    email_pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
 
+    if not re.fullmatch(email_pattern, email):
+        raise ValueError("Email không đúng định dạng")
     if password:
         if len(password) < 8:
             raise ValueError("Mật khẩu phải tối thiểu 8 ký tự")
@@ -150,7 +151,7 @@ def validate_user_form_data_for_admin(
 def register_user(name, username, email, phone, address, password, confirm):
     name = (name or "").strip()
     username = (username or "").strip()
-    email = (email or "").strip()
+    email = (email or "").strip().lower()
     phone = (phone or "").strip()
     address = (address or "").strip()
     password = password or ""
@@ -283,6 +284,63 @@ def update_user_address(user, address_id, recipient_name, phone, address_line, s
         )
         user_address.is_default = True
 
+    db.session.commit()
+
+    return {
+        "id": address.id,
+        "recipient_name": address.recipient_name,
+        "phone": address.phone,
+        "address_line": address.address_line,
+        "is_default": user_address.is_default
+    }
+
+
+def create_user_address(user, recipient_name, phone, address_line, set_as_default=False):
+    recipient_name = (recipient_name or "").strip()
+    phone = (phone or "").strip()
+    address_line = (address_line or "").strip()
+
+    if not recipient_name:
+        raise ValueError("Vui lòng nhập họ và tên")
+
+    if not phone:
+        raise ValueError("Vui lòng nhập số điện thoại")
+
+    if not re.fullmatch(r"\d{10}", phone):
+        raise ValueError("Số điện thoại phải đúng 10 chữ số")
+
+    if not address_line:
+        raise ValueError("Vui lòng nhập địa chỉ")
+
+    has_address = UserAddress.query.filter_by(user_id=user.id).first()
+
+    if not has_address:
+        set_as_default = True
+
+    address = Address(
+        name=recipient_name,
+        recipient_name=recipient_name,
+        phone=phone,
+        address_line=address_line,
+        active=True
+    )
+
+    db.session.add(address)
+    db.session.flush()
+
+    if set_as_default:
+        UserAddress.query.filter_by(user_id=user.id).update(
+            {"is_default": False},
+            synchronize_session=False
+        )
+
+    user_address = UserAddress(
+        user_id=user.id,
+        address_id=address.id,
+        is_default=set_as_default
+    )
+
+    db.session.add(user_address)
     db.session.commit()
 
     return {
@@ -1475,6 +1533,126 @@ def get_admin_dashboard_stats():
 
 
 # user admin
+
+def get_user_detail_for_admin(user_id):
+    user = User.query.get_or_404(user_id)
+
+    now = datetime.now()
+    created_date = user.created_date or now
+    account_days = max((now - created_date).days, 0)
+
+    orders = Order.query.filter_by(user_id=user.id) \
+        .order_by(Order.created_at.desc()) \
+        .all()
+
+    total_orders = len(orders)
+    total_spent = sum(float(o.final_amount or 0) for o in orders)
+    total_before_discount = sum(float(o.total_amount or 0) for o in orders)
+    total_discount = sum(float(o.discount_amount or 0) for o in orders)
+
+    current_coupons = UserCoupon.query.filter_by(
+        user_id=user.id,
+        is_used=False
+    ).order_by(UserCoupon.id.desc()).all()
+
+    used_coupons = UserCoupon.query.filter_by(
+        user_id=user.id,
+        is_used=True
+    ).order_by(UserCoupon.used_at.desc()).all()
+
+    total_items_bought = db.session.query(
+        func.coalesce(func.sum(OrderItem.quantity), 0)
+    ).join(Order, Order.id == OrderItem.order_id) \
+                             .filter(Order.user_id == user.id) \
+                             .scalar() or 0
+
+    avg_order_value = total_spent / total_orders if total_orders > 0 else 0
+
+    stats = {
+        "account_days": account_days,
+        "total_orders": total_orders,
+        "total_spent": total_spent,
+        "total_before_discount": total_before_discount,
+        "total_discount": total_discount,
+        "current_coupon_count": len(current_coupons),
+        "used_coupon_count": len(used_coupons),
+        "total_items_bought": int(total_items_bought),
+        "avg_order_value": avg_order_value,
+        "last_order": orders[0] if orders else None
+    }
+
+    return {
+        "user": user,
+        "stats": stats,
+        "recent_orders": orders[:8],
+        "current_coupons": current_coupons,
+        "used_coupons": used_coupons[:8]
+    }
+
+
+def admin_create_user_from_form(form):
+    name = (form.get("name") or "").strip()
+    username = (form.get("username") or "").strip()
+    email = (form.get("email") or "").strip().lower()
+    phone = (form.get("phone") or "").strip()
+    address = (form.get("address") or "").strip()
+    password = form.get("password") or ""
+    role_raw = form.get("role") or "USER"
+    active = str(form.get("active", "")).strip() in ["1", "true", "True", "on"]
+
+    validate_user_form_data_for_admin(
+        name=name,
+        username=username,
+        email=email,
+        phone=phone,
+        address=address,
+        password=password,
+        user_id=None,
+        require_password=True
+    )
+
+    password_hash = hashlib.md5(password.encode("utf-8")).hexdigest()
+
+    user = User(
+        name=name,
+        username=username,
+        email=email,
+        phone=phone,
+        address=address,
+        password=password_hash,
+        role=UserRole.ADMIN if role_raw == "ADMIN" else UserRole.USER,
+        active=active
+    )
+
+    db.session.add(user)
+    db.session.commit()
+
+    return user
+
+
+def toggle_admin_active_status(user_id, current_admin_id=None):
+    user = User.query.get_or_404(user_id)
+
+    if user.role != UserRole.ADMIN:
+        raise ValueError("Chỉ được thay đổi trạng thái tài khoản admin.")
+
+    if current_admin_id and user.id == current_admin_id:
+        raise ValueError("Bạn không thể tự tắt hoạt động tài khoản admin đang đăng nhập.")
+
+    active_admin_count = User.query.filter(
+        User.role == UserRole.ADMIN,
+        User.active == True
+    ).count()
+
+    if user.active and active_admin_count <= 1:
+        raise ValueError("Không thể tắt admin cuối cùng đang hoạt động.")
+
+    user.active = not user.active
+    db.session.commit()
+
+    return user
+
+
 def query_users_for_admin(search=None):
     query = User.query
 
@@ -1792,3 +1970,32 @@ def paginate_list(items, page=1, page_size=None):
         "has_next": page < pages,
         "has_prev": page > 1
     }
+
+
+# Chi tiet don hang admin
+
+def get_recent_order_notifications(limit=5):
+    return Order.query.order_by(Order.created_at.desc()).limit(limit).all()
+
+
+def count_new_orders():
+    return Order.query.filter_by(status="placed").count()
+
+
+def query_orders_for_admin(search=None):
+    query = Order.query.join(User, Order.user_id == User.id)
+
+    search = (search or "").strip()
+    if search:
+        keyword = f"%{search}%"
+        query = query.filter(
+            (User.name.ilike(keyword)) |
+            (User.username.ilike(keyword)) |
+            (Order.id == search if search.isdigit() else False)
+        )
+
+    return query.order_by(Order.created_at.desc())
+
+
+def get_order_detail_for_admin(order_id):
+    return Order.query.get_or_404(order_id)

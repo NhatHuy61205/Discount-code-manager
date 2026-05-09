@@ -2,7 +2,7 @@
 
 {% block body %}
 <div class="coupon-create-page">
-    {% with messages = get_flashed_messages(with_categories=true, category_filter=['danger']) %}
+    {% with messages = get_flashed_messages(with_categories=true, category_filter=['coupon_danger']) %}
     {% if messages %}
         {% for category, message in messages %}
             <div class="alert alert-danger mb-3">

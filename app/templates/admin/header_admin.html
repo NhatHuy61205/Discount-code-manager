@@ -4,19 +4,15 @@
             <i class="bi bi-list"></i>
         </button>
         <a href="/admin/" class="admin-logo-link">
-    <span class="dot"></span>
-    <span class="logo-text">Discount Admin</span>
-</a>
+            <span class="dot"></span>
+            <span class="logo-text">Discount Admin</span>
+        </a>
     </div>
 
     <div class="admin-navbar-right">
         <span class="admin-name">{{ current_user.name }}</span>
 
-        <div class="bell-wrapper">
-            <i class="bi bi-bell bell-outline"></i>
-            <i class="bi bi-bell-fill bell-fill"></i>
-        </div>
-
+        
         <a href="{{ url_for('logout') }}" class="logout-btn">
             Đăng xuất
         </a>

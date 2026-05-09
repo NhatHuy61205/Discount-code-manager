@@ -2,6 +2,19 @@
 
 {% block body %}
 <div class="user-page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="mb-3">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'danger' else category }} alert-dismissible fade show rounded-4"
+             role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
     <div class="user-toolbar">
         <div>
             <div class="user-page-badge">QUẢN LÝ NGƯỜI DÙNG</div>
@@ -35,11 +48,9 @@
     <div class="user-add-wrap">
         <a href="{{ url_for('.create_view') }}" class="user-add-btn">
             <i class="bi bi-plus-lg"></i>
-            <span>Thêm người dùng</span>
+            <span>Thêm tài khoản</span>
         </a>
     </div>
-
-
     <div class="user-table-card">
         <div class="user-table-head">
             <div>
@@ -115,21 +126,28 @@
 
                     <td class="text-center">
                         <div class="user-actions">
-                            <a href="{{ get_url('.edit_view', id=user.id, url=return_url) }}"
-                               class="user-action-btn edit-btn" title="Chỉnh sửa">
-                                <i class="bi bi-pencil-square"></i>
+                            <a href="{{ url_for('.detail_view', user_id=user.id) }}"
+                               class="user-action-btn view-btn"
+                               title="Xem chi tiết">
+                                <i class="bi bi-eye"></i>
                             </a>
 
+                            {% if user.role.name == 'ADMIN' and user.id != current_user.id %}
                             <form method="post"
-                                  action="{{ get_url('.delete_view') }}"
+                                  action="{{ url_for('.toggle_active_view', user_id=user.id) }}"
                                   style="display:inline-block;"
-                                  onsubmit="return confirm('Bạn có chắc muốn xóa người dùng này?');">
-                                <input type="hidden" name="id" value="{{ user.id }}">
-                                <input type="hidden" name="url" value="{{ return_url }}">
-                                <button type="submit" class="user-action-btn delete-btn" title="Xóa">
-                                    <i class="bi bi-trash3"></i>
+                                  onsubmit="return confirm('Bạn có chắc muốn đổi trạng thái admin này?');">
+                                <button type="submit"
+                                        class="user-action-btn {% if user.active %}lock-btn{% else %}unlock-btn{% endif %}"
+                                        title="{% if user.active %}Tắt hoạt động{% else %}Bật hoạt động{% endif %}">
+                                    {% if user.active %}
+                                    <i class="bi bi-lock"></i>
+                                    {% else %}
+                                    <i class="bi bi-unlock"></i>
+                                    {% endif %}
                                 </button>
                             </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

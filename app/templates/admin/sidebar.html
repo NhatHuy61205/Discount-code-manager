@@ -25,5 +25,8 @@
         <span>Mã giảm giá</span>
     </a>
 
-
+    <a href="/admin/order/" class="{% if request.path.startswith('/admin/order/') %}active{% endif %}">
+        <i class="bi bi-receipt"></i>
+        <span>Đơn hàng</span>
+    </a>
 </div>

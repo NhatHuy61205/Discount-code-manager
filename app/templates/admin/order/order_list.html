@@ -1,0 +1,112 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="coupon-page">
+    <div class="coupon-toolbar">
+        <form method="get" class="coupon-filter-form">
+            <div class="coupon-filter-title">Lịch sử đơn hàng</div>
+
+            <div class="coupon-filter-row coupon-filter-row-top">
+                <div class="coupon-field coupon-field-search">
+                    <input type="text" name="search" class="form-control coupon-input"
+                           value="{{ search }}"
+                           placeholder="Tìm theo tên user, username hoặc mã đơn">
+                </div>
+
+                <div class="coupon-field">
+                    <button type="submit" class="coupon-btn coupon-btn-search">
+                        Tìm kiếm
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0 coupon-table">
+                <thead>
+                <tr>
+                    <th>Mã đơn</th>
+                    <th>Khách hàng</th>
+                    <th>Tổng tiền</th>
+                    <th>Giảm giá</th>
+                    <th>Thanh toán</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày đặt</th>
+                    <th class="text-center">Chi tiết</th>
+                </tr>
+                </thead>
+
+                <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>
+                        <strong>{{ order.user.name }}</strong>
+                        <div class="small text-muted">{{ order.user.username }}</div>
+                    </td>
+                    <td>{{ "{:,.0f}".format(order.total_amount).replace(",", ".") }}đ</td>
+                    <td>{{ "{:,.0f}".format(order.discount_amount or 0).replace(",", ".") }}đ</td>
+                    <td class="fw-bold text-danger">
+                        {{ "{:,.0f}".format(order.final_amount).replace(",", ".") }}đ
+                    </td>
+                    <td>
+                        {% if order.status.name == 'PLACED' %}
+                        <span class="badge rounded-pill bg-warning-subtle text-warning">
+            Đã đặt hàng
+        </span>
+
+                        {% elif order.status.name == 'COMPLETED' %}
+                        <span class="badge rounded-pill bg-success-subtle text-success">
+            Hoàn thành
+        </span>
+
+                        {% elif order.status.name == 'CANCELLED' %}
+                        <span class="badge rounded-pill bg-danger-subtle text-danger">
+            Đã hủy
+        </span>
+
+                        {% else %}
+                        <span class="badge rounded-pill bg-secondary-subtle text-secondary">
+            {{ order.status.name }}
+        </span>
+                        {% endif %}
+                    </td>
+                    <td>{{ order.created_at.strftime('%H:%M - %d/%m/%Y') }}</td>
+                    <td class="text-center">
+                        <a href="{{ url_for('order.detail_view', order_id=order.id) }}"
+                           class="btn btn-sm btn-outline-danger rounded-pill">
+                            Xem
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        Chưa có đơn hàng nào
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% if pages > 1 %}
+<div class="user-pagination-wrap mt-3">
+    {% set prev_url = url_for('.index_view', page=current_page - 1, search=search) if has_prev else '#' %}
+    {% set next_url = url_for('.index_view', page=current_page + 1, search=search) if has_next else '#' %}
+
+    {% set page_links = [] %}
+    {% for p in range(1, pages + 1) %}
+    {% set _ = page_links.append({
+    'page': p,
+    'url': url_for('.index_view', page=p, search=search)
+    }) %}
+    {% endfor %}
+
+    {% include 'partials/pagination.html' %}
+</div>
+{% endif %}
+{% endblock %}

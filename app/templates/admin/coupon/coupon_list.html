@@ -2,10 +2,10 @@
 
 {% block body %}
 <div class="coupon-page">
-    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% with messages = get_flashed_messages(with_categories=true, category_filter=["coupon_success", "coupon_danger"]) %}
 {% if messages %}
     {% set category, message = messages[-1] %}
-    <div class="alert alert-{{ 'danger' if category == 'danger' else category }} mb-3">
+    <div class="alert alert-{{ 'danger' if category == 'coupon_danger' else 'success' }} mb-3">
         {{ message }}
     </div>
 {% endif %}

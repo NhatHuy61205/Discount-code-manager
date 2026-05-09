@@ -1,0 +1,244 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="user-detail-page">
+    <div class="user-detail-header">
+        <div>
+            <div class="user-page-badge">CHI TIẾT NGƯỜI DÙNG</div>
+            <h2 class="user-page-title">{{ user.name }}</h2>
+            <p class="user-page-desc">
+                @{{ user.username }} · {{ user.email }} · {{ user.phone or 'Chưa có số điện thoại' }}
+            </p>
+        </div>
+
+        <a href="{{ url_for('.index_view') }}" class="user-back-btn">
+            <i class="bi bi-arrow-left"></i>
+            Quay lại
+        </a>
+    </div>
+
+    <div class="user-detail-profile-card">
+        <div class="user-detail-avatar">
+            {{ (user.name or 'U')[0]|upper }}
+        </div>
+
+        <div class="user-detail-profile-info">
+            <h4>{{ user.name }}</h4>
+            <p>{{ user.address or 'Chưa có địa chỉ' }}</p>
+
+            <div class="user-detail-tags">
+                {% if user.role.name == 'ADMIN' %}
+                <span class="user-role-badge role-admin">Admin</span>
+                {% else %}
+                <span class="user-role-badge role-user">User</span>
+                {% endif %}
+
+                {% if user.active %}
+                <span class="user-status-badge status-active">
+                        <i class="bi bi-check-circle-fill"></i> Hoạt động
+                    </span>
+                {% else %}
+                <span class="user-status-badge status-inactive">
+                        <i class="bi bi-x-circle-fill"></i> Đã khóa
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="user-detail-date">
+            <span>Ngày tạo tài khoản</span>
+            <strong>
+                {% if user.created_date %}
+                {{ user.created_date.strftime('%H:%M - %d/%m/%Y') }}
+                {% else %}
+                ---
+                {% endif %}
+            </strong>
+            <small>Tồn tại {{ stats.account_days }} ngày</small>
+        </div>
+    </div>
+
+    {% if user.role.name == 'ADMIN' %}
+    <div class="user-stat-grid">
+        <div class="user-stat-card">
+            <span>Loại tài khoản</span>
+            <strong>Admin</strong>
+            <small>Tài khoản quản trị hệ thống</small>
+        </div>
+
+        <div class="user-stat-card">
+            <span>Trạng thái</span>
+            <strong>{{ 'Hoạt động' if user.active else 'Không hoạt động' }}</strong>
+            <small>Chỉ được bật / tắt active</small>
+        </div>
+
+        <div class="user-stat-card">
+            <span>Thời gian tồn tại</span>
+            <strong>{{ stats.account_days }} ngày</strong>
+            <small>Tính từ ngày tạo tài khoản</small>
+        </div>
+    </div>
+
+    <div class="user-detail-card">
+        <div class="user-detail-card-head">
+            <h5>Thông tin quản trị</h5>
+            <span>Admin account</span>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="user-admin-info-box">
+                    <span>Username</span>
+                    <strong>@{{ user.username }}</strong>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="user-admin-info-box">
+                    <span>Email đăng nhập</span>
+                    <strong>{{ user.email }}</strong>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="user-admin-info-box">
+                    <span>Số điện thoại</span>
+                    <strong>{{ user.phone or 'Chưa cập nhật' }}</strong>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="user-admin-info-box">
+                    <span>Ngày tạo</span>
+                    <strong>
+                        {% if user.created_date %}
+                        {{ user.created_date.strftime('%d/%m/%Y %H:%M') }}
+                        {% else %}
+                        ---
+                        {% endif %}
+                    </strong>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="user-admin-note">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    <div>
+                        <strong>Quyền hạn tài khoản admin</strong>
+                        <p>
+                            Tài khoản này dùng để truy cập trang quản trị, quản lý sản phẩm,
+                            danh mục, mã giảm giá, đơn hàng và theo dõi người dùng. Admin không
+                            được xử lý như khách mua hàng nên không hiển thị giỏ hàng, đơn hàng,
+                            mã giảm giá hoặc tổng tiền đã mua.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+
+    <div class="row g-4 mt-1">
+        <div class="col-lg-8">
+            <div class="user-detail-card">
+                <div class="user-detail-card-head">
+                    <h5>Lịch sử đơn hàng gần đây</h5>
+                    <span>{{ stats.total_orders }} đơn</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 user-detail-table">
+                        <thead>
+                        <tr>
+                            <th>Mã đơn</th>
+                            <th>Ngày đặt</th>
+                            <th>Tạm tính</th>
+                            <th>Giảm giá</th>
+                            <th>Thanh toán</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                        </thead>
+
+                        <tbody>
+                        {% for order in recent_orders %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('order.detail_view', order_id=order.id) }}"
+                                   class="fw-bold text-decoration-none">
+                                    #{{ order.id }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if order.created_at %}
+                                {{ order.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                ---
+                                {% endif %}
+                            </td>
+                            <td>{{ "{:,.0f}".format(order.total_amount or 0).replace(",", ".") }}đ</td>
+                            <td class="text-danger">-{{ "{:,.0f}".format(order.discount_amount or 0).replace(",", ".")
+                                }}đ
+                            </td>
+                            <td class="fw-bold">{{ "{:,.0f}".format(order.final_amount or 0).replace(",", ".") }}đ</td>
+                            <td>
+                                <span class="badge rounded-pill bg-info-subtle text-info">
+                                    {{ order.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                User chưa có đơn hàng nào
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="user-detail-card mb-4">
+                <div class="user-detail-card-head">
+                    <h5>Mã giảm giá đang giữ</h5>
+                    <span>{{ stats.current_coupon_count }}</span>
+                </div>
+
+                {% for uc in current_coupons %}
+                <div class="user-coupon-mini">
+                    <strong>{{ uc.coupon.code if uc.coupon else '---' }}</strong>
+                    <span>{{ uc.coupon.name if uc.coupon else 'Mã không tồn tại' }}</span>
+                </div>
+                {% else %}
+                <div class="text-muted small">Không có mã nào đang giữ.</div>
+                {% endfor %}
+            </div>
+
+            <div class="user-detail-card">
+                <div class="user-detail-card-head">
+                    <h5>Mã đã sử dụng</h5>
+                    <span>{{ stats.used_coupon_count }}</span>
+                </div>
+
+                {% for uc in used_coupons %}
+                <div class="user-coupon-mini used">
+                    <strong>{{ uc.coupon.code if uc.coupon else '---' }}</strong>
+                    <span>
+                            {% if uc.used_at %}
+                                Dùng lúc {{ uc.used_at.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                                Đã sử dụng
+                            {% endif %}
+                        </span>
+                </div>
+                {% else %}
+                <div class="text-muted small">Chưa dùng mã giảm giá nào.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

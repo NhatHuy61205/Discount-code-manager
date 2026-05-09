@@ -23,7 +23,9 @@ from app.dao import get_coupon_condition, get_usage_text, query_coupons_for_admi
     create_coupon_from_form, get_coupon_form_data, update_coupon_from_form, delete_coupon_by_id, \
     validate_user_form_data_for_admin, admin_reset_user_password, get_admin_dashboard_stats, paginate_query, \
     query_users_for_admin, query_categories_for_admin, save_category_from_form, delete_category_by_id, \
-    query_products_for_admin, create_product_from_form, update_product_from_form, delete_product_by_id, paginate_list
+    query_products_for_admin, create_product_from_form, update_product_from_form, delete_product_by_id, paginate_list, \
+    get_recent_order_notifications, count_new_orders, get_order_detail_for_admin, query_orders_for_admin, \
+    get_user_detail_for_admin, admin_create_user_from_form, toggle_admin_active_status
 
 
 class AuthenticatedView(ModelView):
@@ -46,64 +48,25 @@ class MyAdminIndexView(AdminIndexView):
     @expose("/")
     def index(self):
         stats = get_admin_dashboard_stats()
-        return self.render("admin/index.html", **stats)
+        recent_order_notifications = get_recent_order_notifications()
+        new_order_count = count_new_orders()
+
+        return self.render(
+            "admin/index.html",
+            recent_order_notifications=recent_order_notifications,
+            new_order_count=new_order_count,
+            **stats
+        )
 
 
 class UserAdminView(AuthenticatedView):
     list_template = "admin/user/user_list.html"
     create_template = "admin/user/user_create.html"
-    edit_template = "admin/user/user_edit.html"
+    details_template = "admin/user/user_detail.html"
 
-    column_list = ['id', 'name', 'username', 'email', 'phone', 'role', 'active', 'created_date']
-    column_searchable_list = ['name', 'username', 'email', 'phone']
-    column_filters = ['role', 'active']
-
-    form_columns = [
-        'name',
-        'email',
-        'phone',
-        'address',
-        'role',
-        'active'
-    ]
-
-    def on_model_change(self, form, model, is_created):
-        name = (form.name.data or "").strip()
-        email = (form.email.data or "").strip()
-        phone = (form.phone.data or "").strip()
-        address = (form.address.data or "").strip()
-
-        validate_user_form_data_for_admin(
-            name=name,
-            username=model.username,
-            email=email,
-            phone=phone,
-            address=address,
-            password="dummy123!",
-            user_id=None if is_created else model.id,
-            require_password=False
-        )
-
-        model.name = name
-        model.email = email
-        model.phone = phone
-        model.address = address
-
-    @expose("/reset-password/<int:user_id>", methods=["POST"])
-    def reset_password_view(self, user_id):
-        user = User.query.get_or_404(user_id)
-
-        try:
-            temp_password = admin_reset_user_password(user.id)
-            flash(f"Đã reset mật khẩu cho {user.username}. Mật khẩu tạm thời: {temp_password}", "success")
-        except ValueError as e:
-            db.session.rollback()
-            flash(str(e), "danger")
-        except Exception:
-            db.session.rollback()
-            flash("Không thể reset mật khẩu cho user này.", "danger")
-
-        return redirect(url_for(".edit_view", id=user_id))
+    can_create = False
+    can_edit = False
+    can_delete = False
 
     @expose("/")
     def index_view(self):
@@ -126,6 +89,53 @@ class UserAdminView(AuthenticatedView):
             has_next=pagination["has_next"],
             search=search
         )
+
+    @expose("/new/", methods=["GET", "POST"])
+    def create_view(self):
+        if request.method == "POST":
+            try:
+                admin_create_user_from_form(request.form)
+                flash("Tạo tài khoản thành công!", "success")
+                return redirect(url_for(".index_view"))
+
+            except ValueError as e:
+                db.session.rollback()
+                flash(str(e), "danger")
+
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Không thể tạo tài khoản: {e}", "danger")
+
+        return self.render(self.create_template)
+
+    @expose("/detail/<int:user_id>")
+    def detail_view(self, user_id):
+        detail = get_user_detail_for_admin(user_id)
+
+        return self.render(
+            self.details_template,
+            user=detail["user"],
+            stats=detail["stats"],
+            recent_orders=detail["recent_orders"],
+            current_coupons=detail["current_coupons"],
+            used_coupons=detail["used_coupons"]
+        )
+
+    @expose("/toggle-active/<int:user_id>", methods=["POST"])
+    def toggle_active_view(self, user_id):
+        try:
+            toggle_admin_active_status(user_id, current_user.id)
+            flash("Cập nhật trạng thái admin thành công!", "success")
+
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), "danger")
+
+        except Exception:
+            db.session.rollback()
+            flash("Không thể cập nhật trạng thái tài khoản.", "danger")
+
+        return redirect(url_for(".index_view"))
 
 
 class CategoryAdminView(AuthenticatedView):
@@ -396,16 +406,16 @@ class CouponAdminView(AuthenticatedView):
             try:
                 create_coupon_from_form(request.form)
 
-                flash("Tạo mã giảm giá thành công!", "success")
+                flash("Tạo mã giảm giá thành công!", "coupon_success")
                 return redirect(url_for(".index_view"))
 
             except ValueError as e:
                 db.session.rollback()
-                flash(str(e), "danger")
+                flash(str(e), "coupon_danger")
 
             except Exception as e:
                 db.session.rollback()
-                flash(f"Có lỗi xảy ra khi tạo mã: {e}", "danger")
+                flash(f"Có lỗi xảy ra khi tạo mã: {e}", "coupon_danger")
 
         return self.render(
             self.create_template,
@@ -424,12 +434,12 @@ class CouponAdminView(AuthenticatedView):
             try:
                 update_coupon_from_form(coupon, form_data)
 
-                flash("Thay đổi mã giảm giá thành công!", "success")
+                flash("Thay đổi mã giảm giá thành công!", "coupon_success")
                 return redirect(url_for(".index_view"))
 
             except ValueError as e:
                 db.session.rollback()
-                flash(str(e), "danger")
+                flash(str(e), "coupon_danger")
 
                 return self.render(
                     self.edit_template,
@@ -440,7 +450,7 @@ class CouponAdminView(AuthenticatedView):
 
             except Exception as e:
                 db.session.rollback()
-                flash(f"Có lỗi xảy ra khi cập nhật mã: {e}", "danger")
+                flash(f"Có lỗi xảy ra khi cập nhật mã: {e}", "coupon_danger")
 
                 return self.render(
                     self.edit_template,
@@ -460,17 +470,52 @@ class CouponAdminView(AuthenticatedView):
     def delete_coupon(self, coupon_id):
         try:
             delete_coupon_by_id(coupon_id)
-            flash("Xóa mã giảm giá thành công!", "success")
+            flash("Xóa mã giảm giá thành công!", "coupon_success")
 
         except ValueError as e:
             db.session.rollback()
-            flash(str(e), "danger")
+            flash(str(e), "coupon_danger")
 
         except Exception:
             db.session.rollback()
-            flash("Không thể xóa mã giảm giá này!", "danger")
+            flash("Không thể xóa mã giảm giá này!", "coupon_danger")
 
         return redirect(url_for(".index_view"))
+
+
+class OrderAdminView(AuthenticatedView):
+    list_template = "admin/order/order_list.html"
+    details_template = "admin/order/order_detail.html"
+
+    @expose("/")
+    def index_view(self):
+        page = request.args.get("page", 1, type=int)
+        search = request.args.get("search", "")
+
+        pagination = paginate_query(
+            query_orders_for_admin(search),
+            page=page,
+            page_size=app.config["PAGE_SIZE"]
+        )
+
+        return self.render(
+            self.list_template,
+            orders=pagination["items"],
+            count=pagination["total"],
+            current_page=pagination["page"],
+            pages=pagination["pages"],
+            has_prev=pagination["has_prev"],
+            has_next=pagination["has_next"],
+            search=search
+        )
+
+    @expose("/detail/<int:order_id>")
+    def detail_view(self, order_id):
+        order = get_order_detail_for_admin(order_id)
+        return self.render(
+            self.details_template,
+            order=order
+        )
 
 
 admin = Admin(
@@ -484,3 +529,4 @@ admin.add_view(UserAdminView(User, db.session, name="Người dùng"))
 admin.add_view(CategoryAdminView(Category, db.session, name="Danh mục"))
 admin.add_view(ProductAdminView(Product, db.session, name="Sản phẩm"))
 admin.add_view(CouponAdminView(Coupon, db.session, name="Mã giảm giá"))
+admin.add_view(OrderAdminView(Order, db.session, name="Đơn hàng", endpoint="order"))

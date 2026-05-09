@@ -2,11 +2,11 @@
 
 {% block body %}
 <div class="container-fluid py-4">
-       {% with messages = get_flashed_messages(with_categories=true) %}
+       {% with messages = get_flashed_messages(with_categories=true, category_filter=['coupon_success', 'coupon_danger']) %}
         {% if messages %}
             <div class="mb-3">
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'danger' else category }} alert-dismissible fade show rounded-3" role="alert">
+                    <div class="alert alert-{{ 'danger' if category == 'coupon_danger' else 'success' }} alert-dismissible fade show rounded-3" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>

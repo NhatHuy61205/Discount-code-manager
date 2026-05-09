@@ -1145,15 +1145,20 @@ function renderSharedCouponList(coupons) {
 
     sharedCouponList.innerHTML = coupons.map(coupon => {
         const disabledClass = coupon.is_usable ? "" : " is-disabled";
-        const checkedArea = coupon.is_usable
-            ? `<input
-                    type="radio"
-                    name="selected_shared_coupon"
-                    class="cart-coupon-radio"
-                    value="${coupon.coupon_id}"
-                    data-code="${coupon.code}"
-               >`
-            : "";
+        const isChecked =
+    selectedCoupon &&
+    Number(selectedCoupon.coupon_id) === Number(coupon.coupon_id);
+
+const checkedArea = coupon.is_usable
+    ? `<input
+            type="radio"
+            name="selected_shared_coupon"
+            class="cart-coupon-radio"
+            value="${coupon.coupon_id}"
+            data-code="${coupon.code}"
+            ${isChecked ? "checked" : ""}
+       >`
+    : "";
 
         const statusText = coupon.is_usable
             ? `<div class="cart-coupon-item__status text-success">Có thể áp dụng</div>`
@@ -1430,6 +1435,10 @@ const editAddressLine = document.getElementById("editAddressLine");
 const checkoutAddressEditError = document.getElementById("checkoutAddressEditError");
 const editSetDefault = document.getElementById("editSetDefault");
 const checkoutAddressEditDefaultLabel = document.getElementById("checkoutAddressEditDefaultLabel");
+const checkoutAddressAddBtn = document.getElementById("checkoutAddressAddBtn");
+const checkoutAddressEditTitle = document.getElementById("checkoutAddressEditTitle");
+
+let checkoutAddressMode = "edit";
 
 function showCheckoutAddressEditModal() {
     if (!checkoutAddressEditModal) return;
@@ -1441,16 +1450,52 @@ function hideCheckoutAddressEditModal() {
     if (!checkoutAddressEditModal) return;
     checkoutAddressEditModal.classList.remove("show");
     document.body.style.overflow = "";
+
     if (checkoutAddressEditError) {
         checkoutAddressEditError.classList.add("d-none");
         checkoutAddressEditError.textContent = "";
     }
 }
 
+if (checkoutAddressAddBtn) {
+    checkoutAddressAddBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+
+        checkoutAddressMode = "create";
+
+        if (checkoutAddressEditTitle) {
+            checkoutAddressEditTitle.textContent = "Thêm địa chỉ";
+        }
+
+        if (editAddressId) editAddressId.value = "";
+        if (editRecipientName) editRecipientName.value = "";
+        if (editPhone) editPhone.value = "";
+        if (editAddressLine) editAddressLine.value = "";
+
+        if (editSetDefault) {
+            editSetDefault.checked = false;
+            editSetDefault.disabled = false;
+        }
+
+        if (checkoutAddressEditDefaultLabel) {
+            checkoutAddressEditDefaultLabel.classList.remove("is-disabled");
+            checkoutAddressEditDefaultLabel.removeAttribute("title");
+        }
+
+        hideCheckoutAddressModal();
+        showCheckoutAddressEditModal();
+    });
+}
+
 document.querySelectorAll(".checkout-address-option__edit").forEach(btn => {
     btn.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
+        checkoutAddressMode = "edit";
+
+if (checkoutAddressEditTitle) {
+    checkoutAddressEditTitle.textContent = "Cập nhật địa chỉ";
+}
 
         const isDefault = this.dataset.default === "True" || this.dataset.default === "true";
 
@@ -1511,8 +1556,16 @@ if (checkoutAddressEditSubmit) {
         const addressLine = editAddressLine?.value?.trim() || "";
 
         try {
-            const res = await fetch(`/api/checkout/address/${addressId}`, {
-                method: "PUT",
+            const url = checkoutAddressMode === "create"
+    ? "/api/checkout/address"
+    : `/api/checkout/address/${addressId}`;
+
+const method = checkoutAddressMode === "create"
+    ? "POST"
+    : "PUT";
+
+const res = await fetch(url, {
+    method: method,
                 headers: {
                     "Content-Type": "application/json"
                 },
@@ -1531,6 +1584,10 @@ if (checkoutAddressEditSubmit) {
             }
 
             const updated = data.address;
+            if (checkoutAddressMode === "create") {
+    window.location.reload();
+    return;
+}
 
             const setAsDefaultNow = updated.is_default;
 
@@ -1869,4 +1926,5 @@ if (loadMoreBtn && productList && loadMoreWrap) {
         }
     });
 }
+
 });

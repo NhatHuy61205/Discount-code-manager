@@ -11,7 +11,7 @@ from app.dao import (
     get_remaining_quantity, get_available_my_coupons_for_cart, validate_selected_coupon_for_cart,
     get_default_address_for_user, get_addresses_by_user, update_user_address, create_order_from_checkout,
     get_orders_by_user, get_recommended_products, add_product_to_cart, update_cart_item_quantity,
-    delete_cart_item_by_product, get_top_categories_by_product_count
+    delete_cart_item_by_product, get_top_categories_by_product_count, create_user_address
 )
 from app.models import UserRole, Order, CartItem
 
@@ -566,10 +566,47 @@ def update_checkout_address(address_id):
             "success": False,
             "message": str(e)
         }), 400
-    except Exception:
+    except Exception as e:
+        db.session.rollback()
+        print("UPDATE ADDRESS ERROR:", e)
+
         return jsonify({
             "success": False,
             "message": "Không thể cập nhật địa chỉ"
+        }), 500
+
+
+@app.route("/api/checkout/address", methods=["POST"])
+@login_required
+def create_checkout_address():
+    try:
+        data = request.get_json() or {}
+
+        address = create_user_address(
+            current_user,
+            recipient_name=data.get("recipient_name"),
+            phone=data.get("phone"),
+            address_line=data.get("address_line"),
+            set_as_default=data.get("set_as_default", False)
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Thêm địa chỉ thành công",
+            "address": address
+        })
+
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "message": "Không thể thêm địa chỉ"
         }), 500
 
 
@@ -601,7 +638,10 @@ def place_order():
             "success": False,
             "message": str(e)
         }), 400
-    except Exception:
+    except Exception as e:
+        db.session.rollback()
+        print("PLACE ORDER ERROR:", e)
+
         return jsonify({
             "success": False,
             "message": "Không thể đặt hàng"

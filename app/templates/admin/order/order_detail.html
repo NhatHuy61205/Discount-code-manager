@@ -1,0 +1,88 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="coupon-page">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-bold">Chi tiết đơn hàng #{{ order.id }}</h3>
+        <a href="{{ url_for('order.index_view') }}" class="btn btn-outline-secondary rounded-pill">
+            ← Quay lại
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body">
+            <h5 class="fw-bold mb-3">Thông tin đơn hàng</h5>
+
+            <p><strong>Khách hàng:</strong> {{ order.user.name }}</p>
+            <p><strong>Username:</strong> {{ order.user.username }}</p>
+            <p><strong>Ngày đặt:</strong> {{ order.created_at.strftime('%H:%M - %d/%m/%Y') if order.created_at else
+                '---' }}</p>
+            <p>
+                <strong>Trạng thái:</strong>
+
+                {% if order.status.name == 'PLACED' %}
+                <span class="badge rounded-pill bg-warning-subtle text-warning">
+            Đã đặt hàng
+        </span>
+
+                {% elif order.status.name == 'COMPLETED' %}
+                <span class="badge rounded-pill bg-success-subtle text-success">
+            Hoàn thành
+        </span>
+
+                {% elif order.status.name == 'CANCELLED' %}
+                <span class="badge rounded-pill bg-danger-subtle text-danger">
+            Đã hủy
+        </span>
+
+                {% else %}
+                <span class="badge rounded-pill bg-secondary-subtle text-secondary">
+            {{ order.status.name }}
+        </span>
+                {% endif %}
+            </p>
+            <p><strong>Mã giảm giá:</strong> {{ order.coupon.code if order.coupon else 'Không dùng' }}</p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0 coupon-table">
+                <thead>
+                <tr>
+                    <th>Sản phẩm</th>
+                    <th>Số lượng</th>
+                    <th>Đơn giá</th>
+                    <th>Thành tiền</th>
+                </tr>
+                </thead>
+
+                <tbody>
+                {% for item in order.order_items %}
+                <tr>
+                    <td>
+                        <strong>{{ item.product.name if item.product else 'Sản phẩm đã bị xóa' }}</strong>
+                    </td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ "{:,.0f}".format(item.price).replace(",", ".") }}đ</td>
+                    <td class="fw-bold">
+                        {{ "{:,.0f}".format(item.price * item.quantity).replace(",", ".") }}đ
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mt-4">
+        <div class="card-body text-end">
+            <p>Tổng tiền hàng: <strong>{{ "{:,.0f}".format(order.total_amount).replace(",", ".") }}đ</strong></p>
+            <p>Giảm giá: <strong>{{ "{:,.0f}".format(order.discount_amount or 0).replace(",", ".") }}đ</strong></p>
+            <h4 class="text-danger fw-bold">
+                Thanh toán: {{ "{:,.0f}".format(order.final_amount).replace(",", ".") }}đ
+            </h4>
+        </div>
+    </div>
+</div>
+{% endblock %}

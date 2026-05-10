@@ -181,9 +181,26 @@
                             </td>
                             <td class="fw-bold">{{ "{:,.0f}".format(order.final_amount or 0).replace(",", ".") }}đ</td>
                             <td>
+                                {% if order.status.value == 'placed' %}
                                 <span class="badge rounded-pill bg-info-subtle text-info">
-                                    {{ order.status }}
-                                </span>
+            Đã đặt hàng
+        </span>
+
+                                {% elif order.status.value == 'completed' %}
+                                <span class="badge rounded-pill bg-success-subtle text-success">
+            Hoàn thành
+        </span>
+
+                                {% elif order.status.value == 'cancelled' %}
+                                <span class="badge rounded-pill bg-danger-subtle text-danger">
+            Đã hủy
+        </span>
+
+                                {% else %}
+                                <span class="badge rounded-pill bg-secondary-subtle text-secondary">
+            Không xác định
+        </span>
+                                {% endif %}
                             </td>
                         </tr>
                         {% else %}

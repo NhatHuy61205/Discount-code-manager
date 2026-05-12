@@ -335,10 +335,15 @@ class ProductAdminView(AuthenticatedView):
         return redirect(url_for(".index_view"))
 
 
+def can_edit_coupon(coupon):
+    return coupon.start_date and coupon.start_date > datetime.now()
+
+
 class CouponAdminView(AuthenticatedView):
     list_template = "admin/coupon/coupon_list.html"
     create_template = "admin/coupon/coupon_create.html"
     edit_template = "admin/coupon/coupon_edit.html"
+    detail_template = "admin/coupon/coupon_detail.html"
 
     form_columns = [
         'name',
@@ -395,7 +400,8 @@ class CouponAdminView(AuthenticatedView):
             CouponTargetType=CouponTargetType,
             CouponStatus=CouponStatus,
             CouponCondition=CouponCondition,
-            DiscountKind=DiscountKind
+            DiscountKind=DiscountKind,
+            now=datetime.now()
         )
 
     @expose("/new/", methods=["GET", "POST"])
@@ -428,12 +434,15 @@ class CouponAdminView(AuthenticatedView):
     def edit_view(self, coupon_id):
         coupon = Coupon.query.get_or_404(coupon_id)
 
+        if not can_edit_coupon(coupon):
+            flash("Mã giảm giá đã được phát hành nên chỉ được xem chi tiết, không được chỉnh sửa.", "coupon_danger")
+            return redirect(url_for(".detail_view", coupon_id=coupon.id))
+
         if request.method == "POST":
             form_data = get_coupon_form_data(request.form, coupon)
 
             try:
                 update_coupon_from_form(coupon, form_data)
-
                 flash("Thay đổi mã giảm giá thành công!", "coupon_success")
                 return redirect(url_for(".index_view"))
 
@@ -445,7 +454,7 @@ class CouponAdminView(AuthenticatedView):
                     self.edit_template,
                     model=coupon,
                     form_data=form_data,
-                    can_edit_start_date=(coupon.start_date and coupon.start_date > datetime.now())
+                    can_edit_start_date=True
                 )
 
             except Exception as e:
@@ -456,14 +465,25 @@ class CouponAdminView(AuthenticatedView):
                     self.edit_template,
                     model=coupon,
                     form_data=form_data,
-                    can_edit_start_date=(coupon.start_date and coupon.start_date > datetime.now())
+                    can_edit_start_date=True
                 )
 
         return self.render(
             self.edit_template,
             model=coupon,
             form_data=get_coupon_form_data(request.form, coupon),
-            can_edit_start_date=(coupon.start_date and coupon.start_date > datetime.now())
+            can_edit_start_date=True
+        )
+
+    @expose("/detail/<int:coupon_id>")
+    def detail_view(self, coupon_id):
+        coupon = Coupon.query.get_or_404(coupon_id)
+
+        return self.render(
+            self.detail_template,
+            coupon=coupon,
+            condition=get_coupon_condition(coupon),
+            usage_text=get_usage_text(coupon)
         )
 
     @expose("/delete/<int:coupon_id>", methods=["POST"])

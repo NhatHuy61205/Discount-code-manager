@@ -11,6 +11,7 @@
         {% endfor %}
     {% endif %}
 {% endwith %}
+
     <form method="post" class="coupon-create-form">
         <div class="coupon-create-card">
             <h3 class="coupon-create-title">Thông tin khởi tạo</h3>
@@ -79,11 +80,25 @@
                 <label class="coupon-create-label">Thời gian sử dụng:</label>
                 <div class="row g-3">
                     <div class="col-md-6">
-                       <input type="text" id="start_date" name="start_date" value="{{ request.form.get('start_date', '') }}" class="form-control coupon-create-input required-field" placeholder="Thời gian bắt đầu">
+                       <input
+    type="text"
+    id="start_date"
+    name="start_date"
+    value="{{ request.form.get('start_date', '') }}"
+    class="form-control coupon-create-input required-field js-start-date"
+    placeholder="Thời gian bắt đầu"
+>
 
                     </div>
                     <div class="col-md-6">
-                       <input type="text" id="end_date" name="end_date" value="{{ request.form.get('end_date', '') }}" class="form-control coupon-create-input required-field" placeholder="Thời gian kết thúc">
+                       <input
+    type="text"
+    id="end_date"
+    name="end_date"
+    value="{{ request.form.get('end_date', '') }}"
+    class="form-control coupon-create-input required-field js-end-date"
+    placeholder="Thời gian kết thúc"
+>
                     </div>
                 </div>
             </div>
@@ -195,6 +210,7 @@
     Vui lòng điền đầy đủ thông tin
 </div>
         <div class="coupon-create-actions">
+
             <button type="submit" class="btn btn-danger coupon-submit-btn">
                 Tạo mã
             </button>

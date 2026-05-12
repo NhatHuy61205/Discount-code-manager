@@ -79,22 +79,27 @@ if (discountRadios.length) {
         });
     }
     if (typeof flatpickr !== "undefined") {
-    const startPicker = flatpickr("#start_date", {
+    const startPickers = flatpickr(".js-start-date", {
         enableTime: true,
         time_24hr: true,
         dateFormat: "d/m/Y H:i",
         minDate: "today"
     });
 
-    const endPicker = flatpickr("#end_date", {
+    const endPickers = flatpickr(".js-end-date", {
         enableTime: true,
         time_24hr: true,
         dateFormat: "d/m/Y H:i"
     });
 
+    const startPicker = Array.isArray(startPickers) ? startPickers[0] : startPickers;
+    const endPicker = Array.isArray(endPickers) ? endPickers[0] : endPickers;
+
     if (startPicker && endPicker) {
         startPicker.config.onChange.push(function(selectedDates) {
-            endPicker.set("minDate", selectedDates[0]);
+            if (selectedDates[0]) {
+                endPicker.set("minDate", selectedDates[0]);
+            }
         });
     }
 }

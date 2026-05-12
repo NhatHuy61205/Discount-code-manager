@@ -192,9 +192,15 @@
 
         <ul class="dropdown-menu dropdown-menu-right">
             <li>
-                <a class="dropdown-item" href="{{ url_for('coupon.edit_view', coupon_id=c.id) }}">
-                    Chỉnh sửa
-                </a>
+               {% if c.start_date and c.start_date > now %}
+    <a class="dropdown-item" href="{{ url_for('coupon.edit_view', coupon_id=c.id) }}">
+        Chỉnh sửa
+    </a>
+{% else %}
+    <a class="dropdown-item" href="{{ url_for('coupon.detail_view', coupon_id=c.id) }}">
+        Xem chi tiết
+    </a>
+{% endif %}
             </li>
             <li>
                 <form method="post"

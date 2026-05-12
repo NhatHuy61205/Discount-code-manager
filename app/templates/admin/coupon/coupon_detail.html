@@ -1,0 +1,120 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-1">Chi tiết mã giảm giá</h3>
+            <div class="text-muted">
+                Mã đã được phát hành nên không thể chỉnh sửa.
+            </div>
+        </div>
+
+        <a href="{{ url_for('.index_view') }}" class="btn btn-outline-secondary rounded-pill">
+            ← Quay lại
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-4 p-4">
+        <h5 class="fw-bold mb-3">Thông tin cơ bản</h5>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Code</div>
+                <div class="fw-bold">{{ coupon.code }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Tên mã</div>
+                <div class="fw-semibold">{{ coupon.name }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Tình trạng</div>
+                <div class="fw-semibold">{{ condition.value }}</div>
+            </div>
+
+            <div class="col-12">
+                <div class="text-muted small">Mô tả</div>
+                <div>{{ coupon.description or 'Không có mô tả' }}</div>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h5 class="fw-bold mb-3">Thiết lập giảm giá</h5>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Loại giảm</div>
+                <div>
+                    {% if coupon.discount_kind.value == 'percentage' %}
+                    Giảm theo %
+                    {% else %}
+                    Giảm theo tiền
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Giá trị giảm</div>
+                <div>
+                    {% if coupon.discount_kind.value == 'percentage' %}
+                    {{ coupon.discount_value|int }}%
+                    {% else %}
+                    {{ "{:,.0f}".format(coupon.discount_value).replace(",", ".") }}đ
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Giảm tối đa</div>
+                <div>
+                    {% if coupon.max_discount_value %}
+                    {{ "{:,.0f}".format(coupon.max_discount_value).replace(",", ".") }}đ
+                    {% else %}
+                    Không áp dụng
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h5 class="fw-bold mb-3">Điều kiện áp dụng</h5>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-muted small">Đơn tối thiểu</div>
+                <div>{{ "{:,.0f}".format(coupon.min_order_value or 0).replace(",", ".") }}đ</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Đã lưu / Tổng số lượng</div>
+                <div>{{ usage_text }}</div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="text-muted small">Hiển thị công khai</div>
+                <div>{{ 'Có' if coupon.show_public else 'Không' }}</div>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h5 class="fw-bold mb-3">Thời gian</h5>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="text-muted small">Ngày bắt đầu</div>
+                <div>{{ coupon.start_date.strftime('%H:%M - %d/%m/%Y') if coupon.start_date else '' }}</div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="text-muted small">Ngày kết thúc</div>
+                <div>{{ coupon.end_date.strftime('%H:%M - %d/%m/%Y') if coupon.end_date else '' }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

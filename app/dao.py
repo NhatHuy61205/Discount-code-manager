@@ -189,13 +189,13 @@ def register_user(name, username, email, phone, address, password, confirm):
 
 def get_default_address_for_user(user):
     sql = text("""
-        SELECT a.id, a.recipient_name, a.phone, a.address_line
-        FROM address a
-        JOIN user_address ua ON ua.address_id = a.id
-        WHERE ua.user_id = :user_id AND a.active = true
-        ORDER BY ua.is_default DESC, a.id ASC
-        LIMIT 1
-    """)
+            SELECT a.id, a.recipient_name, a.phone, a.address_line
+            FROM address a
+            JOIN user_address ua ON ua.address_id = a.id
+            WHERE ua.user_id = :user_id AND a.active = true
+            ORDER BY ua.is_default DESC, a.id ASC
+            LIMIT 1
+        """)
 
     row = db.session.execute(sql, {"user_id": user.id}).mappings().first()
 
@@ -222,12 +222,12 @@ def get_default_address_for_user(user):
 
 def get_addresses_by_user(user):
     sql = text("""
-        SELECT a.id, a.recipient_name, a.phone, a.address_line, ua.is_default
-        FROM address a
-        JOIN user_address ua ON ua.address_id = a.id
-        WHERE ua.user_id = :user_id AND a.active = true
-        ORDER BY ua.is_default DESC, a.id DESC
-    """)
+            SELECT a.id, a.recipient_name, a.phone, a.address_line, ua.is_default
+            FROM address a
+            JOIN user_address ua ON ua.address_id = a.id
+            WHERE ua.user_id = :user_id AND a.active = true
+            ORDER BY ua.is_default DESC, a.id DESC
+        """)
 
     rows = db.session.execute(sql, {"user_id": user.id}).mappings().all()
 
@@ -1203,6 +1203,10 @@ def create_coupon_from_form(form):
 
 # Sửa mã giảm giá
 def update_coupon_from_form(coupon, form_data):
+    now = datetime.now()
+
+    if not coupon.start_date or coupon.start_date <= now:
+        raise ValueError("Mã giảm giá đã được phát hành nên không được chỉnh sửa.")
     name = form_data["name"]
     code = form_data["code"]
     description = form_data["description"]
@@ -1814,10 +1818,22 @@ def create_product_from_form(form, files):
     if not warranty:
         raise ValueError("Vui lòng nhập thông tin bảo hành.")
 
+    try:
+        price = float(form.get("price") or 0)
+        stock_quantity = int(form.get("stock_quantity") or 0)
+    except ValueError:
+        raise ValueError("Giá và số lượng phải là số hợp lệ.")
+
+    if price < 0:
+        raise ValueError("Giá sản phẩm không được âm.")
+
+    if stock_quantity < 0:
+        raise ValueError("Số lượng sản phẩm không được âm.")
+
     product = Product(
-        name=form.get("name"),
-        price=float(form.get("price") or 0),
-        stock_quantity=int(form.get("stock_quantity") or 0),
+        name=(form.get("name") or "").strip(),
+        price=price,
+        stock_quantity=stock_quantity,
         cate_id=int(form.get("cate_id")),
         image=saved_images[0] if saved_images else None,
         active=bool(form.get("active"))
@@ -1849,10 +1865,28 @@ def create_product_from_form(form, files):
 
 # edit
 def update_product_from_form(product, form, files):
-    product.name = form.get("name")
-    product.price = float(form.get("price") or 0)
-    product.stock_quantity = int(form.get("stock_quantity") or 0)
-    product.cate_id = int(form.get("cate_id"))
+    name = (form.get("name") or "").strip()
+
+    try:
+        price = float(form.get("price") or 0)
+        stock_quantity = int(form.get("stock_quantity") or 0)
+        cate_id = int(form.get("cate_id"))
+    except ValueError:
+        raise ValueError("Giá, số lượng và danh mục phải hợp lệ.")
+
+    if not name:
+        raise ValueError("Vui lòng nhập tên sản phẩm.")
+
+    if price < 0:
+        raise ValueError("Giá sản phẩm không được âm.")
+
+    if stock_quantity < 0:
+        raise ValueError("Số lượng sản phẩm không được âm.")
+
+    product.name = name
+    product.price = price
+    product.stock_quantity = stock_quantity
+    product.cate_id = cate_id
     product.active = bool(form.get("active"))
 
     description = (form.get("description") or "").strip()

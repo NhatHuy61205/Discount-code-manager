@@ -26,12 +26,13 @@
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Giá</label>
-                <input type="number" name="price" class="form-control coupon-create-input" required>
+                <input type="number" name="price" min="0" step="1000" class="form-control coupon-create-input" required>
             </div>
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Tồn kho</label>
-                <input type="number" name="stock_quantity" class="form-control coupon-create-input" required>
+                <input type="number" name="stock_quantity" min="0" step="1" class="form-control coupon-create-input"
+                       required>
             </div>
 
             <div class="coupon-create-group">

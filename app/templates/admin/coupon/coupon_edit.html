@@ -8,7 +8,7 @@
                 {% for category, message in messages %}
                     <div class="alert alert-{{ 'danger' if category == 'coupon_danger' else 'success' }} alert-dismissible fade show rounded-3" role="alert">
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+
                     </div>
                 {% endfor %}
             </div>
@@ -105,12 +105,25 @@
     Bạn chỉ được chỉnh ngày bắt đầu khi mã giảm giá chưa tới thời gian bắt đầu.
 </small>
 {% endif %}
-                <input type="text" name="start_date" value="{{ form_data.start_date }}" class="form-control rounded-3"  {% if not can_edit_start_date %}readonly{% endif %}>
+               <input
+    type="text"
+    name="start_date"
+    value="{{ form_data.start_date }}"
+    class="form-control rounded-3 js-start-date"
+    placeholder="Thời gian bắt đầu"
+    {% if not can_edit_start_date %}readonly{% endif %}
+>
             </div>
 
             <div class="col-md-6">
                 <label class="form-label">Ngày kết thúc</label>
-                <input type="text" name="end_date" value="{{ form_data.end_date }}" class="form-control rounded-3">
+                <input
+    type="text"
+    name="end_date"
+    value="{{ form_data.end_date }}"
+    class="form-control rounded-3 js-end-date"
+    placeholder="Thời gian kết thúc"
+>
             </div>
         </div>
 

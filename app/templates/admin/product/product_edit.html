@@ -26,7 +26,7 @@
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Giá</label>
-                <input type="number" name="price"
+                <input type="number" name="price" min="0" step="1000"
                        value="{{ request.form.get('price', product.price) }}"
                        class="form-control coupon-create-input"
                        required>
@@ -34,7 +34,7 @@
 
             <div class="coupon-create-group">
                 <label class="coupon-create-label">Tồn kho</label>
-                <input type="number" name="stock_quantity"
+                <input type="number" name="stock_quantity" min="0" step="1"
                        value="{{ request.form.get('stock_quantity', product.stock_quantity) }}"
                        class="form-control coupon-create-input"
                        required>

@@ -75,7 +75,8 @@
                         <div class="header-cart-dropdown__list">
                             {% for item in cart_preview_items %}
                             <a href="{{ url_for('product_detail', product_id=item.product.id) }}"
-                               class="header-cart-dropdown__item">
+                               class="header-cart-dropdown__item"
+                               data-product-id="{{ item.product.id }}">
 
                                 <img src="{{ item.product.image or 'https://via.placeholder.com/80x80?text=No+Image' }}"
                                      class="header-cart-dropdown__img">

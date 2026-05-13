@@ -8,10 +8,7 @@ class HomePage(BasePage):
     SEARCH_INPUT = (By.NAME, 'keyword')
     SEARCH_BTN = (By.CSS_SELECTOR, '#mainNavbar form button[type="submit"]')
 
-    PRODUCT_TITLE = (
-        By.CSS_SELECTOR,
-        '.product-card .card-title'
-    )
+    PRODUCT_TITLE = (By.CSS_SELECTOR,'.product-card .card-title')
     VIEW_DETAIL_BTN = (By.CSS_SELECTOR, '.product-card .btn-outline-danger')
 
     def open_page(self):

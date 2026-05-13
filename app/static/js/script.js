@@ -1133,6 +1133,13 @@ const openCartCouponModalBtn = document.getElementById("openCartCouponModal");
 const openCheckoutCouponModalBtn = document.getElementById("openCheckoutCouponModal");
 
 let couponModalSource = null; // "cart" | "checkout"
+const checkoutCouponIdInput = document.getElementById("checkoutCouponId");
+
+if (checkoutCouponIdInput && checkoutCouponIdInput.value) {
+    selectedCoupon = {
+        coupon_id: parseInt(checkoutCouponIdInput.value, 10)
+    };
+}
 
 function openSharedCouponModal() {
     if (!sharedCouponModal) return;

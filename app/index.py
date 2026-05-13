@@ -301,11 +301,24 @@ def apply_coupon_to_cart():
 def add_to_cart():
     try:
         data = request.get_json() or {}
+        product_id = data.get("id")
+
         result = add_product_to_cart(
             current_user,
-            product_id=data.get("id"),
+            product_id=product_id,
             quantity=data.get("quantity", 1)
         )
+
+        product = get_product_by_id(product_id)
+
+        result["item"] = {
+            "id": product.id,
+            "name": product.name,
+            "price": product.price,
+            "image": product.image or "https://via.placeholder.com/80x80?text=No+Image",
+            "url": url_for("product_detail", product_id=product.id)
+        }
+
         return jsonify(result)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400

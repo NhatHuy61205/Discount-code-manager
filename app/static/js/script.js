@@ -369,10 +369,11 @@ if (addToCartBtn) {
             if (!res.ok) throw new Error(data.error || "Có lỗi xảy ra");
             return data;
         })
-        .then(data => {
-            updateCartBadge(data.total_items);
-            showAddToCartToast();
-        })
+       .then(data => {
+    updateCartBadge(data.total_items);
+    updateHeaderCartDropdown(data.item);
+    showAddToCartToast();
+})
         .catch(err => {
             alert(err.message);
         });
@@ -437,6 +438,40 @@ function updateCartBadge(count) {
     } else {
         badge.classList.add("d-none");
     }
+}
+function updateHeaderCartDropdown(item) {
+    if (!item) return;
+
+    const list = document.querySelector(".header-cart-dropdown__list");
+    if (!list) return;
+
+    const oldItem = list.querySelector(
+        `.header-cart-dropdown__item[data-product-id="${item.id}"]`
+    );
+
+    if (oldItem) {
+        oldItem.remove();
+    }
+
+    const html = `
+        <a href="${item.url}"
+           class="header-cart-dropdown__item"
+           data-product-id="${item.id}">
+            <img src="${item.image}" class="header-cart-dropdown__img">
+
+            <div class="header-cart-dropdown__info">
+                <div class="header-cart-dropdown__name">
+                    ${item.name}
+                </div>
+            </div>
+
+            <div class="header-cart-dropdown__price">
+                ${Number(item.price).toLocaleString("vi-VN")}đ
+            </div>
+        </a>
+    `;
+
+    list.insertAdjacentHTML("afterbegin", html);
 }
 function updateCartRowUI(row, quantity) {
     const qtyInput = row.querySelector(".qty-input");

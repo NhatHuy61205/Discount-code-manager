@@ -370,7 +370,7 @@ def paginate_query(query, page=1, page_size=None):
 
     return {
         "items": items,
-        "page": page,
+        "pages": page,
         "pages": pages,
         "total": total,
         "page_size": page_size,
@@ -1997,7 +1997,7 @@ def paginate_list(items, page=1, page_size=None):
 
     return {
         "items": items[start:end],
-        "page": page,
+        "pages": page,
         "pages": pages,
         "total": total,
         "page_size": page_size,

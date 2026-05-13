@@ -21,7 +21,7 @@ def index():
     if current_user.is_authenticated and current_user.role == UserRole.ADMIN:
         return redirect(url_for("admin.index"))
 
-    page = request.args.get("page", 1, type=int)
+    page = request.args.get("pages", 1, type=int)
     q = request.args.get("q", "", type=str).strip()
 
     hero_banners = [f"pics/pics_sale{i}.jpg" for i in range(1, 5)]
@@ -31,7 +31,7 @@ def index():
         "index.html",
         hero_banners=hero_banners,
         products=product_data["items"],
-        current_page=product_data["page"],
+        current_page=product_data["pages"],
         pages=product_data["pages"],
         has_next=product_data["has_next"],
         q=q
@@ -43,7 +43,7 @@ def search_products():
     if current_user.is_authenticated and current_user.role == UserRole.ADMIN:
         return redirect(url_for("admin.index"))
 
-    page = request.args.get("page", 1, type=int)
+    page = request.args.get("pages", 1, type=int)
     keyword = request.args.get("keyword", "", type=str).strip()
 
     if not keyword:
@@ -54,7 +54,7 @@ def search_products():
     return render_template(
         "search.html",
         products=product_data["items"],
-        current_page=product_data["page"],
+        current_page=product_data["pages"],
         pages=product_data["pages"],
         total=product_data["total"],
         has_next=product_data["has_next"],
@@ -78,7 +78,7 @@ def welcome_package():
 
 @app.route("/api/products")
 def load_more_products():
-    page = request.args.get("page", 1, type=int)
+    page = request.args.get("pages", 1, type=int)
     product_data = get_active_products(page=page)
 
     return jsonify({
@@ -99,7 +99,7 @@ def load_more_products():
             }
             for product in product_data["items"]
         ],
-        "current_page": product_data["page"],
+        "current_page": product_data["pages"],
         "has_next": product_data["has_next"]
     })
 
@@ -368,13 +368,13 @@ def delete_cart_item(product_id):
 # RECOMMEND
 @app.route("/recommend")
 def recommend():
-    page = request.args.get("page", 1, type=int)
+    page = request.args.get("pages", 1, type=int)
     product_data = get_recommended_products(page=page)
 
     return render_template(
         "recommend.html",
         products=product_data["items"],
-        current_page=product_data["page"],
+        current_page=product_data["pages"],
         pages=product_data["pages"],
         has_prev=product_data["has_prev"],
         has_next=product_data["has_next"]

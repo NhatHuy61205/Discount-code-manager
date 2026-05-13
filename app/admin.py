@@ -70,7 +70,7 @@ class UserAdminView(AuthenticatedView):
 
     @expose("/")
     def index_view(self):
-        page = request.args.get("page", 1, type=int)
+        page = request.args.get("pages", 1, type=int)
         search = (request.args.get("search") or "").strip()
 
         pagination = paginate_query(
@@ -83,7 +83,7 @@ class UserAdminView(AuthenticatedView):
             self.list_template,
             data=pagination["items"],
             count=pagination["total"],
-            current_page=pagination["page"],
+            current_page=pagination["pages"],
             pages=pagination["pages"],
             has_prev=pagination["has_prev"],
             has_next=pagination["has_next"],
@@ -220,7 +220,7 @@ class ProductAdminView(AuthenticatedView):
 
     @expose("/")
     def index_view(self):
-        page = request.args.get("page", 1, type=int)
+        page = request.args.get("pages", 1, type=int)
         per_page = app.config.get("PAGE_SIZE", 6)
 
         search = (request.args.get("search") or "").strip()
@@ -248,7 +248,7 @@ class ProductAdminView(AuthenticatedView):
             data=pagination["items"],
             categories=categories,
             count=pagination["total"],
-            current_page=pagination["page"],
+            current_page=pagination["pages"],
             pages=pagination["pages"],
             has_prev=pagination["has_prev"],
             has_next=pagination["has_next"],
@@ -366,7 +366,7 @@ class CouponAdminView(AuthenticatedView):
 
     @expose("/")
     def index_view(self):
-        page = request.args.get("page", 1, type=int)
+        page = request.args.get("pages", 1, type=int)
         per_page = app.config["PAGE_SIZE"]
 
         all_coupons = query_coupons_for_admin(request.args)
@@ -380,8 +380,8 @@ class CouponAdminView(AuthenticatedView):
         return self.render(
             self.list_template,
             coupons=pagination["items"],
-            page=pagination["page"],
-            current_page=pagination["page"],
+            page=pagination["pages"],
+            current_page=pagination["pages"],
             per_page=per_page,
             total=pagination["total"],
             count=pagination["total"],
@@ -509,7 +509,7 @@ class OrderAdminView(AuthenticatedView):
 
     @expose("/")
     def index_view(self):
-        page = request.args.get("page", 1, type=int)
+        page = request.args.get("pages", 1, type=int)
         search = request.args.get("search", "")
 
         pagination = paginate_query(
@@ -522,7 +522,7 @@ class OrderAdminView(AuthenticatedView):
             self.list_template,
             orders=pagination["items"],
             count=pagination["total"],
-            current_page=pagination["page"],
+            current_page=pagination["pages"],
             pages=pagination["pages"],
             has_prev=pagination["has_prev"],
             has_next=pagination["has_next"],

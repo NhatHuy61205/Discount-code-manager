@@ -172,27 +172,41 @@
     </div>
 
     {% if pages > 1 %}
-    <div class="user-pagination-wrap mt-3">
-        <nav>
-            <ul class="pagination justify-content-end mb-0">
-                {% for p in range(1, pages + 1) %}
-                <li class="page-item {% if p == current_page %}active{% endif %}">
-                    <a class="page-link"
-                       href="{{ get_url('.index_view',
-    page=p,
-    search=search,
-    category_id=category_id,
-    price_sort=price_sort,
-    stock_sort=stock_sort
-) }}">
-                        {{ p }}
-                    </a>
-                </li>
-                {% endfor %}
-            </ul>
-        </nav>
-    </div>
-    {% endif %}
+<div class="user-pagination-wrap mt-3">
+
+    {% set prev_url = get_url('.index_view',
+        page=current_page - 1,
+        search=search,
+        category_id=category_id,
+        price_sort=price_sort,
+        stock_sort=stock_sort
+    ) if has_prev else '#' %}
+
+    {% set next_url = get_url('.index_view',
+        page=current_page + 1,
+        search=search,
+        category_id=category_id,
+        price_sort=price_sort,
+        stock_sort=stock_sort
+    ) if has_next else '#' %}
+
+    {% set page_links = [] %}
+    {% for p in range(1, pages + 1) %}
+        {% set _ = page_links.append({
+            'page': p,
+            'url': get_url('.index_view',
+                page=p,
+                search=search,
+                category_id=category_id,
+                price_sort=price_sort,
+                stock_sort=stock_sort
+            )
+        }) %}
+    {% endfor %}
+
+    {% include 'partials/pagination.html' %}
+</div>
+{% endif %}
 
 </div>
 {% endblock %}

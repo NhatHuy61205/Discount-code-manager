@@ -92,13 +92,45 @@ if (discountRadios.length) {
         dateFormat: "d/m/Y H:i"
     });
 
-    const startPicker = Array.isArray(startPickers) ? startPickers[0] : startPickers;
-    const endPicker = Array.isArray(endPickers) ? endPickers[0] : endPickers;
+    const startPicker = Array.isArray(startPickers)
+        ? startPickers[0]
+        : startPickers;
+
+    const endPicker = Array.isArray(endPickers)
+        ? endPickers[0]
+        : endPickers;
 
     if (startPicker && endPicker) {
-        startPicker.config.onChange.push(function(selectedDates) {
+
+
+        const startDateValue = startPicker.input.value;
+
+        if (startDateValue) {
+            const parsedStartDate = startPicker.parseDate(
+                startDateValue,
+                "d/m/Y H:i"
+            );
+
+            if (parsedStartDate) {
+                endPicker.set("minDate", parsedStartDate);
+            }
+        }
+
+
+        startPicker.config.onChange.push(function (selectedDates) {
+
             if (selectedDates[0]) {
                 endPicker.set("minDate", selectedDates[0]);
+
+
+                const currentEndDate = endPicker.selectedDates[0];
+
+                if (
+                    currentEndDate &&
+                    currentEndDate < selectedDates[0]
+                ) {
+                    endPicker.clear();
+                }
             }
         });
     }

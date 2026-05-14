@@ -11,6 +11,7 @@ from app.test.pages.CartPage import CartPage
 from app.test.pages.CouponPage import CouponPage
 from app.test.pages.CouponModalPage import CouponModalPage
 from app.test.pages.CheckoutPage import CheckoutPage
+from app.test.pages.AdminCouponPage import AdminCouponPage
 from app.test.test_base import driver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -249,3 +250,26 @@ def test_checkout_full_flow(driver):
     time.sleep(2)
 
     assert history.is_product_in_orders(product_name)
+
+def test_admin_create_coupon(driver):
+    login = LoginPage(driver)
+    login.open_page()
+    login.login("admin", "admin123")
+    time.sleep(2)
+
+    coupon = AdminCouponPage(driver)
+    coupon.open_page()
+    time.sleep(2)
+
+    coupon.click_create_coupon()
+    time.sleep(2)
+
+    coupon.create_coupon("Ma giam gia mua mua","MUAMUA","990000", "50000", "10", "2026-05-14 00:00", "2026-05-31 00:00")
+    time.sleep(3)
+
+    alert = coupon.get_success_alert()
+    assert "Tạo mã giảm giá thành công" in alert.text
+
+    assert coupon.is_coupon_exists("MUAMUA")
+
+

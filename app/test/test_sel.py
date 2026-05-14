@@ -8,6 +8,7 @@ from app.test.pages.HomePage import HomePage
 from app.test.pages.ProductDetailPage import ProductDetailPage
 from app.test.pages.AdminDashboardPage import AdminDashboardPage
 from app.test.pages.CartPage import CartPage
+from app.test.pages.CouponPage import CouponPage
 from app.test.pages.CouponModalPage import CouponModalPage
 from app.test.pages.CheckoutPage import CheckoutPage
 from app.test.test_base import driver
@@ -159,15 +160,16 @@ def test_save_coupon(driver):
     login.login('user1', '123456')
     time.sleep(2)
 
-    driver.get("http://127.0.0.1:5000/coupon")
+    coupon = CouponPage(driver)
+    coupon.open_page()
     time.sleep(2)
 
-    before = len(driver.find_elements(By.CSS_SELECTOR, ".coupon-ticket-card-owned"))
+    before = coupon.get_my_coupon_count()
 
-    driver.find_element(By.CSS_SELECTOR, ".coupon-ticket-btn[type='submit']").click()
+    coupon.save_first_coupon()
     time.sleep(2)
 
-    after = len(driver.find_elements(By.CSS_SELECTOR, ".coupon-ticket-card-owned"))
+    after = coupon.get_my_coupon_count()
 
     assert after == before + 1
 
